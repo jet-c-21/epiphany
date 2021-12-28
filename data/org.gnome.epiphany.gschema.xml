@@ -35,12 +35,12 @@
 		</key>
 		<key type="aa{sv}" name="search-engine-providers">
 			<!-- TRANSLATORS: These are the prepopulated search engines. You should
-				add country-specific URL query parameters if appropriate or change
-				the domain name's TLD. The different query parameters to be used for each
-				engine is as follows:
+				add country-specific URL query parameters to 'url' and 'suggestions_url',
+				if appropriate or change the domain name's TLD. The different query
+				parameters to use for each engine are as follows:
 				- DuckDuckGo: kl=country-language (see https://duckduckgo.com/params)
 				- Google: hl=lang (see https://developers.google.com/custom-search/docs/xml_results_appendices#interfaceLanguages)
-				- Bing: cc=country (see https://docs.microsoft.com/en-us/azure/cognitive-services/bing-web-search/language-support)
+				- Bing: setlang=lang (see https://learn.microsoft.com/en-us/bing/search-apis/bing-autosuggest/reference/market-codes#bing-supported-language-codes)
 				You are allowed to add search engines here, *if they make sense*. Please
 				don't add your favorite search engine just because you like it though,
 				only do it for search engines that are already widely used in this specific country.
@@ -49,28 +49,35 @@
 				make sure that you're not making mistakes in the GVariant text (e.g.
 				missing ', <, > or trailing comma), and that you're keeping the %s
 				placeholder for the search query. Also please check if they are actually
-				properly shown in the Preferences if you reset the gsettings key. -->
+				properly shown in the Preferences if you reset the gsettings key and that
+				search suggestions work with each search engine. -->
 			<default l10n="messages">
 				<![CDATA[
 				[
-					{'name': <'DuckDuckGo'>, 'url': <'https://duckduckgo.com/?q=%s&t=epiphany'>, 'bang': <'!ddg'>},
-					{'name': <'Google'>, 'url': <'https://www.google.com/search?q=%s'>, 'bang': <'!g'>},
-					{'name': <'Bing'>, 'url': <'https://www.bing.com/search?q=%s'>, 'bang': <'!b'>}
+					{
+						'name': <'DuckDuckGo'>, 'url': <'https://duckduckgo.com/?q=%s&t=epiphany'>, 'bang': <'!ddg'>,
+						'suggestions_url': <'https://duckduckgo.com/ac/?q=%s&type=list'>, 'opensearch_url': <'https://duckduckgo.com/opensearch.xml'>
+					},
+					{
+						'name': <'Google'>, 'url': <'https://www.google.com/search?q=%s'>, 'bang': <'!g'>,
+						'suggestions_url': <'https://www.google.com/complete/search?q=%s&inputencoding=UTF-8&outputencoding=UTF-8&client=firefox'>,
+						'opensearch_url': <'https://www.google.com/searchdomaincheck?format=opensearch'>
+					},
+					{
+						'name': <'Bing'>, 'url': <'https://www.bing.com/search?q=%s'>, 'bang': <'!b'>,
+						'suggestions_url': <'https://www.bing.com/osjson.aspx?query=%s'>
+					}
 				]
 			]]></default>
 			<summary>List of the search engines.</summary>
-			<description>
-			  List of the search engines. It is an array of vardicts with each
-			  vardict corresponding to a search engine, and with the following
-			  supported keys: "name" is the name of the search engine. "url" is
-			  the search URL with the search term replaced with %s. "bang" is the
-			  bang (shortcut word) of the search engine.
+			<description>List of the search engines. It is an array of vardicts with each vardict corresponding to a search engine, and with the following supported keys:
+				- name: The name of the search engine
+				- url: The search URL with the search term replaced with %s.
+				- bang: The "bang" (shortcut word) of the search engine
+				The following fields should be left empty or absent if the search engine was added manually from the preferences (i.e. not using OpenSearch):
+				- opensearch_url: The URL where the OpenSearch description file that was used to add this search engine is located.
+				- suggestions_url: The suggestions URL extracted from the OpenSearch description file, to be used as described in the specification.
 			</description>
-		</key>
-		<key type="b" name="use-google-search-suggestions">
-			<default>false</default>
-			<summary>Enable Google Search Suggestions</summary>
-			<description>Whether to show Google Search Suggestion in url entry popdown.</description>
 		</key>
 		<key type="b" name="new-windows-in-tabs">
 			<default>true</default>
@@ -495,3 +502,4 @@
 		</key>
 	</schema>
 </schemalist>
+

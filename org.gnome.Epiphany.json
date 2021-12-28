@@ -133,6 +133,18 @@
             ]
         },
         {
+            "name" : "libadwaita-expanded-branch",
+            "buildsystem" : "meson",
+            "sources" : [
+                {
+                    "type" : "git",
+                    "url" : "https://gitlab.gnome.org/Vanadiae/libadwaita.git",
+                    "branch" : "expander-row-child-revealed-prop",
+                    "commit" : "c833c56c25affb817dd4e4913f36e484e9e23692"
+                }
+            ]
+        },
+        {
             "name" : "epiphany",
             "buildsystem" : "meson",
             "builddir" : true,

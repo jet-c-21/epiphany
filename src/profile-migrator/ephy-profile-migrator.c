@@ -20,12 +20,16 @@
 
 #include "config.h"
 
+#include "embed/ephy-embed.h"
+#include "embed/ephy-embed-shell.h"
 #include "ephy-bookmarks-manager.h"
 #include "ephy-debug.h"
 #include "ephy-file-helpers.h"
 #include "ephy-filters-manager.h"
 #include "ephy-flatpak-utils.h"
 #include "ephy-history-service.h"
+#include "ephy-opensearch-engine.h"
+#include "ephy-opensearch-autodiscovery-link.h"
 #include "ephy-password-manager.h"
 #include "ephy-prefs.h"
 #include "ephy-profile-utils.h"
@@ -36,6 +40,7 @@
 #include "ephy-sync-debug.h"
 #include "ephy-sync-utils.h"
 #include "ephy-web-app-utils.h"
+#include "ephy-web-view.h"
 #include "gvdb-builder.h"
 #include "gvdb-reader.h"
 
@@ -53,6 +58,9 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <webkit/webkit.h>
+
+#undef G_LOG_DOMAIN
+#define G_LOG_DOMAIN "ephy-profile-migrator"
 
 static int do_step_n = -1;
 static int migration_version = -1;
@@ -1680,6 +1688,262 @@ next:
   }
 }
 
+typedef struct {
+  GListStore *engines_left_model;
+  GtkWidget *web_view;
+  GtkWidget *window;
+  GCancellable *cancellable;
+} MigrateOpenSearch;
+
+static void
+free_migrate_opensearch (MigrateOpenSearch *data)
+{
+  g_clear_object (&data->engines_left_model);
+  g_cancellable_cancel (data->cancellable);
+  g_clear_object (&data->cancellable);
+
+  g_free (data);
+}
+
+static void queue_links_loading (MigrateOpenSearch *data);
+
+static void
+engine_loaded_from_link_cb (EphyOpensearchAutodiscoveryLink *link,
+                            GAsyncResult                    *result,
+                            MigrateOpenSearch               *data)
+{
+  g_autoptr (GError) error = NULL;
+  g_autoptr (EphySearchEngine) engine = g_list_model_get_item (G_LIST_MODEL (data->engines_left_model), 0);
+  g_autoptr (EphySearchEngine) loaded_engine =
+    ephy_opensearch_engine_load_from_link_finish (link, result, &error);
+
+  g_list_store_remove (data->engines_left_model, 0);
+
+  if (!loaded_engine) {
+    if (!g_error_matches (error, G_IO_ERROR, G_IO_ERROR_CANCELLED))
+      g_warning ("Could not load OpenSearch engine from link: %s", error->message);
+  } else {
+    ephy_search_engine_set_opensearch_url (engine, ephy_search_engine_get_opensearch_url (loaded_engine));
+    ephy_search_engine_set_suggestions_url (engine, ephy_search_engine_get_suggestions_url (loaded_engine));
+    g_debug ("Successfully migrated search engine %s to OpenSearch, %d left", ephy_search_engine_get_name (engine), g_list_model_get_n_items (G_LIST_MODEL (data->engines_left_model)));
+  }
+
+  queue_links_loading (data);
+}
+
+static void
+search_engines_loaded_cb (EphyWebView       *view,
+                          MigrateOpenSearch *data)
+{
+  GListModel *opensearch_engines = ephy_web_view_get_opensearch_engines (view);
+  /* This program is non-interactive, so always pick the first opensearch engine
+   * we've autodiscovered, even if there's several ones available.
+   */
+  g_autoptr (EphyOpensearchAutodiscoveryLink) opensearch_engine = g_list_model_get_item (opensearch_engines, 0);
+
+  /* Disconnect each time we autodiscover new OpenSearch engines, because
+   * EphyWebView automatically changes the URL to an error page when we
+   * make the web view stop loading below, so the OpenSearch autodiscovery
+   * code runs again on the error page, making a false positive. Just disconnect
+   * now and reconnect again after the migration when calling queue_links_loading().
+   */
+  g_signal_handlers_disconnect_by_func (view, G_CALLBACK (search_engines_loaded_cb), data);
+
+  webkit_web_view_stop_loading (WEBKIT_WEB_VIEW (data->web_view));
+
+  /* There will not always be an OpenSearch engine available for all search
+   * engines, so account for that.
+   */
+  if (opensearch_engine) {
+    ephy_opensearch_engine_load_from_link_async (opensearch_engine, data->cancellable, (GAsyncReadyCallback)engine_loaded_from_link_cb, data);
+  } else {
+    g_list_store_remove (data->engines_left_model, 0);
+    queue_links_loading (data);
+  }
+}
+
+/* Note that the migration is done sequentially, not in parallel. */
+static void
+queue_links_loading (MigrateOpenSearch *data)
+{
+  g_autoptr (EphySearchEngine) engine = NULL;
+  g_autofree char *example_query_url = NULL;
+
+  if (g_list_model_get_n_items (G_LIST_MODEL (data->engines_left_model)) == 0) {
+    ephy_search_engine_manager_save_to_settings (ephy_embed_shell_get_search_engine_manager (ephy_embed_shell_get_default ()));
+    /* Note that this will also free "data" as part of the g_signal_connect_data("close-request", …) below. */
+    gtk_window_close (GTK_WINDOW (data->window));
+    /* FIXME: if I enable the gtk_window_present() below it works without
+     * manually destroying the window. If it's not presented/shown ever, then
+     * the window seems to stick around without ending the G(tk)Application
+     * mainloop and/or "closing" the (hidden) window.
+     */
+    gtk_window_destroy (GTK_WINDOW (data->window));
+    return;
+  }
+
+  /* We remove the engine from the model when we've migrated it, so the next one
+   * to migrate is always at the start of the model.
+   */
+  engine = EPHY_SEARCH_ENGINE (g_list_model_get_item (G_LIST_MODEL (data->engines_left_model), 0));
+  example_query_url = ephy_search_engine_build_search_address (engine, "example");
+
+  g_signal_connect (data->web_view, "search-engines-loaded", G_CALLBACK (search_engines_loaded_cb), data);
+  ephy_web_view_load_url (EPHY_WEB_VIEW (data->web_view), example_query_url);
+}
+
+/* Returns whether if this was a builtin engine that we were able to migrate */
+static gboolean
+migrate_builtin (EphySearchEngine *engine)
+{
+  g_autofree char *host = NULL;
+  g_autofree char *params_str = NULL;
+  g_autoptr (GError) error = NULL;
+  g_autoptr (GString) sanitized_url = g_string_new (ephy_search_engine_get_url (engine));
+  /* We keep the raw "%s" placeholder while storing the URL but the GUri functions
+   * we use here mandate properly %-encoded URLs so let's replace it with some
+   * placeholder text to make it happy.
+   */
+  g_string_replace (sanitized_url, "%s", "placeholder", 0);
+  /* We can't autodiscover for Google and Bing, but they do have some OpenSearch
+   * -compatible suggestions support, so add them manually while keeping the language
+   * URL params.
+   */
+  if (!g_uri_split (sanitized_url->str, G_URI_FLAGS_NONE,
+                    NULL, NULL,
+                    &host,
+                    NULL, NULL,
+                    &params_str,
+                    NULL, &error)) {
+    g_warning ("error while parsing URL %s to add builtin engine to list: %s", sanitized_url->str, error->message);
+    return FALSE;
+  }
+
+  /* Skip the rest if there's no params in the search engine's URL or was an
+   * error: both Google and Bing use a q= query param, so it's unlikely to be
+   * one of them.
+   */
+  if (!params_str || *params_str == '\0')
+    return FALSE;
+
+  {
+    g_auto (GStrv) host_components = g_strsplit (host, ".", -1);
+    g_autoptr (GHashTable) params = g_uri_parse_params (params_str, -1, "&", G_URI_PARAMS_NONE, NULL);
+    if (!params)
+      return FALSE;
+
+    if (g_strv_contains ((const char * const *)host_components, "google")) {
+      const char *hl_value = g_hash_table_lookup (params, "hl");
+      g_autofree char *hl_pair = hl_value ? g_strconcat ("&hl=", hl_value, NULL) : g_strdup ("");
+      g_autofree char *suggestions_params = g_strconcat ("q=%s&inputencoding=UTF-8&outputencoding=UTF-8&client=firefox", hl_pair, NULL);
+      g_autofree char *suggestions_url =
+        g_uri_join (G_URI_FLAGS_ENCODED, "https", NULL, host, -1, "/complete/search", suggestions_params, NULL);
+      g_autofree char *opensearch_url =
+        g_uri_join (G_URI_FLAGS_ENCODED, "https", NULL, host, -1, "/searchdomaincheck", "format=opensearch", NULL);
+
+      ephy_search_engine_set_opensearch_url (engine, opensearch_url);
+      ephy_search_engine_set_suggestions_url (engine, suggestions_url);
+    } else if (g_strv_contains ((const char * const *)host_components, "bing")) {
+      const char *cc_value = g_hash_table_lookup (params, "cc");
+      const char *setlang_value = g_hash_table_lookup (params, "setlang");
+      g_autofree char *cc_pair = cc_value ? g_strconcat ("&cc=", cc_value, NULL) : g_strdup ("");
+      g_autofree char *setlang_pair = setlang_value ? g_strconcat ("&setlang=", setlang_value, NULL) : g_strdup ("");
+      g_autofree char *suggestions_params = g_strconcat ("query=%s", cc_pair, setlang_pair, NULL);
+      g_autofree char *suggestions_url =
+        g_uri_join (G_URI_FLAGS_ENCODED, "https", NULL, host, -1, "/osjson.aspx", suggestions_params, NULL);
+
+      ephy_search_engine_set_suggestions_url (engine, suggestions_url);
+    } else {
+      /* Not a builtin engine */
+      return FALSE;
+    }
+  }
+  g_debug ("Successfully migrated builtin search engine %s to OpenSearch", ephy_search_engine_get_name (engine));
+  return TRUE;
+}
+
+static gboolean
+on_close_request_cancel_migration_cb (GtkWindow         *window,
+                                      MigrateOpenSearch *data)
+{
+  g_cancellable_cancel (data->cancellable);
+  return FALSE;
+}
+
+static void
+on_application_activated_cb (GtkApplication *app,
+                             guint          *migrations_left)
+{
+  GtkWidget *window = NULL;
+  EphySearchEngineManager *manager = ephy_embed_shell_get_search_engine_manager (ephy_embed_shell_get_default ());
+  /* We can't create the web view from the UI file because ephy_web_view_new ()
+   * sets up the web context from the embed shell, meaning that the web process
+   * extension we need will be loaded, but a plain g_object_new() without args
+   * like done by GtkBuilder stuff won't set it up for us.
+   */
+  GtkWidget *web_view = ephy_web_view_new ();
+  /* The EphyEmbed is necessary to make EphyWebView happy. */
+  GtkWidget *embed = g_object_new (EPHY_TYPE_EMBED,
+                                   "web-view", web_view,
+                                   "title", NULL,
+                                   "progress-bar-enabled", FALSE,
+                                   NULL);
+  GListStore *engines_left_model = g_list_store_new (EPHY_TYPE_SEARCH_ENGINE);
+  guint n_engines = g_list_model_get_n_items (G_LIST_MODEL (manager));
+  MigrateOpenSearch *data;
+
+  window = gtk_application_window_new (app);
+  gtk_widget_set_size_request (web_view, -1, 100);
+  gtk_window_set_child (GTK_WINDOW (window), embed);
+  /* Enabling this line is nice for debugging. */
+#if 0
+  gtk_window_present (GTK_WINDOW (window));
+#endif
+
+  /* FIXME: Currently we're sharing things like cookies when doing all the requests
+   * we do to autodiscover links. Moreover, the history gets our example query
+   * added. We need to share at least parts of the web context that
+   * ephy_web_view_new() sets up because it sets up the web extension, providing
+   * the DocumentLoaded user msg to run the OpenSearch JS code afterwards.
+   * ephy_web_view_freeze_history() and ephy_web_view_thaw_history() are currently
+   * private, but in any case there's probably loads of other issues with sharing
+   * the web context with the other tabs…
+   */
+  for (guint i = 0; i < n_engines; i++) {
+    g_autoptr (EphySearchEngine) engine = g_list_model_get_item (G_LIST_MODEL (manager), i);
+
+    /* Only migrate search engines that have neither a suggestions URL nor an opensearch
+     * URL. Note that a search engine can have suggestions but no opensearch URL
+     * (the builtin Bing case) or opensearch without suggestions, or neither of those.
+     */
+    if (ephy_search_engine_get_opensearch_url (engine) == NULL &&
+        ephy_search_engine_get_suggestions_url (engine) == NULL) {
+      if (!migrate_builtin (engine))
+        g_list_store_append (engines_left_model, engine);
+    }
+  }
+
+  data = g_new0 (MigrateOpenSearch, 1);
+  data->engines_left_model = engines_left_model;
+  data->web_view = web_view;
+  data->window = window;
+  data->cancellable = g_cancellable_new ();
+  g_signal_connect_data (window, "close-request", G_CALLBACK (on_close_request_cancel_migration_cb), data, (GClosureNotify)free_migrate_opensearch, G_CONNECT_DEFAULT);
+  queue_links_loading (data);
+}
+
+static void
+migrate_search_engines_to_opensearch (void)
+{
+  /* g_autoptr (GtkApplication) app = gtk_application_new (NULL, G_APPLICATION_DEFAULT_FLAGS); */
+  /* EphyEmbedShell -> … -> G(tk)Application */
+  g_autoptr (EphyEmbedShell) app = g_object_new (EPHY_TYPE_EMBED_SHELL, NULL);
+
+  g_signal_connect (app, "activate", G_CALLBACK (on_application_activated_cb), NULL);
+  if (g_application_run (G_APPLICATION (app), 0, NULL) != EXIT_SUCCESS)
+    g_warning ("Failed to run migrate_search_engines_to_opensearch() migrator");
+}
+
 static void
 migrate_nothing (void)
 {
@@ -1733,6 +1997,7 @@ const EphyProfileMigrator migrators[] = {
   /* FIXME: Please also remove the "search-engines" deprecated gschema key when dropping this migrator in the future. */
   /* 36 */ migrate_search_engines_to_vardict,
   /* 37 */ migrate_pre_flatpak_webapps,
+  /* 38 */ migrate_search_engines_to_opensearch,
 };
 
 static gboolean

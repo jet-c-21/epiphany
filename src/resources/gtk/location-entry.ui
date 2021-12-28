@@ -106,6 +106,17 @@
       </object>
     </child>
     <child>
+      <object class="EphyAddOpensearchEngineButton" id="opensearch_button">
+        <property name="valign">center</property>
+        <!-- The opensearch button itself is always visible, but its child menu button isn't. -->
+        <property name="visible">True</property>
+        <style>
+          <class name="entry-icon"/>
+          <class name="end"/>
+        </style>
+      </object>
+    </child>
+    <child>
       <object class="GtkPopover" id="suggestions_popover">
         <property name="has-arrow">False</property>
         <property name="autohide">False</property>
@@ -303,3 +314,4 @@
     </section>
   </menu>
 </interface>
+

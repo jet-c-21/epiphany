@@ -37,6 +37,9 @@ struct _EphySearchEngineRow {
   GtkWidget *bang_entry;
   GtkWidget *remove_button;
   GtkWidget *radio_button;
+  GtkWidget *suggestions_box;
+  GtkWidget *suggestions_icon;
+  GtkWidget *suggestions_label;
 
   EphySearchEngine *engine;
   EphySearchEngineManager *manager;
@@ -90,6 +93,39 @@ ephy_search_engine_row_set_radio_button_group (EphySearchEngineRow *self,
 {
   gtk_check_button_set_group (GTK_CHECK_BUTTON (self->radio_button),
                               radio_button_group);
+}
+
+/**
+ * ephy_search_engine_row_get_engine:
+ *
+ * Returns: the #EphySearchEngine displayed by this row
+ */
+EphySearchEngine *
+ephy_search_engine_row_get_engine (EphySearchEngineRow *self)
+{
+  return self->engine;
+}
+
+/**
+ * ephy_search_engine_row_focus_bang_entry:
+ *
+ * Brings the focus on the bang entry, to encourage people to choose a nice one.
+ */
+void
+ephy_search_engine_row_focus_bang_entry (EphySearchEngineRow *self)
+{
+  gtk_widget_grab_focus (self->bang_entry);
+}
+
+/**
+ * ephy_search_engine_row_focus_name_entry:
+ *
+ * Brings the focus on the name entry.
+ */
+void
+ephy_search_engine_row_focus_name_entry (EphySearchEngineRow *self)
+{
+  gtk_widget_grab_focus (self->name_entry);
 }
 
 /***** Private implementation *****/
@@ -150,35 +186,28 @@ validate_search_engine_address (const char  *address,
   return TRUE;
 }
 
+/* TODO: Needs proper validation support in libadwaita: https://gitlab.gnome.org/GNOME/libadwaita/-/issues/237
+ * The tooltip text in particular is unsatisfactory (but not really worse than
+ * how I did it previously). */
 static void
-set_entry_as_invalid (GtkEntry   *entry,
-                      const char *error_message)
+set_entry_as_invalid (AdwEntryRow *entry,
+                      const char  *error_message)
 {
-  gtk_entry_set_icon_from_icon_name (entry,
-                                     GTK_ENTRY_ICON_SECONDARY,
-                                     "dialog-warning-symbolic");
-  gtk_entry_set_icon_tooltip_text (entry,
-                                   GTK_ENTRY_ICON_SECONDARY,
-                                   error_message);
+  gtk_widget_set_tooltip_text (GTK_WIDGET (entry), error_message);
   gtk_widget_add_css_class (GTK_WIDGET (entry), "error");
 }
 
 static void
-set_entry_as_valid (GtkEntry *entry)
+set_entry_as_valid (AdwEntryRow *entry)
 {
-  gtk_entry_set_icon_from_icon_name (entry,
-                                     GTK_ENTRY_ICON_SECONDARY,
-                                     NULL);
-  gtk_entry_set_icon_tooltip_text (entry,
-                                   GTK_ENTRY_ICON_SECONDARY,
-                                   NULL);
+  gtk_widget_set_tooltip_text (GTK_WIDGET (entry), NULL);
   gtk_widget_remove_css_class (GTK_WIDGET (entry), "error");
 }
 
 static void
 on_bang_entry_text_changed_cb (EphySearchEngineRow *row,
                                GParamSpec          *pspec,
-                               GtkEntry            *bang_entry)
+                               AdwEntryRow         *bang_entry)
 {
   const char *bang = gtk_editable_get_text (GTK_EDITABLE (bang_entry));
 
@@ -200,12 +229,13 @@ on_bang_entry_text_changed_cb (EphySearchEngineRow *row,
     set_entry_as_valid (bang_entry);
     ephy_search_engine_set_bang (row->engine, bang);
   }
+  adw_preferences_row_set_title (ADW_PREFERENCES_ROW (bang_entry), *bang == '\0' ? _("Shortcut (for example !ddg)") : _("Shortcut"));
 }
 
 static void
 on_address_entry_text_changed_cb (EphySearchEngineRow *row,
                                   GParamSpec          *pspec,
-                                  GtkEntry            *address_entry)
+                                  AdwEntryRow         *address_entry)
 {
   const char *validation_message = NULL;
   const char *url = gtk_editable_get_text (GTK_EDITABLE (address_entry));
@@ -217,104 +247,13 @@ on_address_entry_text_changed_cb (EphySearchEngineRow *row,
     set_entry_as_valid (address_entry);
     ephy_search_engine_set_url (row->engine, url);
   }
-}
-
-typedef gboolean ( *UnicodeStrFilterFunc )(gunichar c);
-/**
- * filter_str_with_functor:
- *
- * Filters-out every character that doesn't match @filter.
- *
- * @utf8_str: an UTF-8 string
- * @filter: a function pointer to one of the g_unichar_isX function.
- *
- * Returns: a new UTF-8 string containing only the characters matching @filter.
- */
-static char *
-filter_str_with_functor (const char           *utf8_str,
-                         UnicodeStrFilterFunc  filter_func)
-{
-  gunichar *filtered_unicode_str = g_new0 (gunichar, strlen (utf8_str) + 1);
-  g_autofree gunichar *unicode_str = NULL;
-  char *final_utf8_str = NULL;
-  int i = 0, j = 0;
-
-  unicode_str = g_utf8_to_ucs4_fast (utf8_str, -1, NULL);
-
-  for (; unicode_str[i] != 0; ++i) {
-    /* If this characters matches, we add it to the final string. */
-    if (filter_func (unicode_str[i]))
-      filtered_unicode_str[j++] = unicode_str[i];
-  }
-  final_utf8_str = g_ucs4_to_utf8 (filtered_unicode_str, -1, NULL, NULL, NULL);
-  /* We already assume it's UTF-8 when using g_utf8_to_ucs4_fast() above, and
-   * our processing can't create invalid UTF-8 characters as we are only
-   * copying existing and already valid UTF-8 characters. So it's safe to assert.
-   */
-  g_assert (final_utf8_str);
-  /* Would be better to use g_autofree but scan-build complains as it doesn't properly handle the cleanup attribute. */
-  g_free (filtered_unicode_str);
-
-  return final_utf8_str;
-}
-
-/* This function automatically builds the shortcut string from the search engine
- * name, taking every first character in each word and every uppercase characters.
- * This means name "DuckDuckGo" will set bang to "!ddg" and "duck duck go" will
- * set bang to "!ddg" as well.
- */
-static void
-update_bang_for_name (EphySearchEngineRow *row,
-                      const char          *new_name)
-{
-  g_autofree char *search_engine_name = g_strstrip (g_strdup (new_name));
-  g_auto (GStrv) words = NULL;
-  char *word;
-  g_autofree char *acronym = g_strdup ("");
-  g_autofree char *lowercase_acronym = NULL;
-  g_autofree char *final_bang = NULL;
-  int i = 0;
-
-  /* There's nothing to do if the string is empty. */
-  if (g_strcmp0 (search_engine_name, "") == 0)
-    return;
-
-  /* We ignore both the space character and opening parenthesis, as that
-   * allows us to get !we as bang with "Wikipedia (en)" as name.
-   */
-  words = g_strsplit_set (search_engine_name, " (", 0);
-
-  for (; words[i] != NULL; ++i) {
-    g_autofree char *uppercase_chars = NULL;
-    char *tmp_acronym = NULL;
-    /* Fit the largest possible size for an UTF-8 character (4 bytes) and one byte for the NUL string terminator */
-    char first_word_char[5] = {0};
-    word = words[i];
-
-    /* Ignore empty words. This might happen if there are multiple consecutives spaces between two words. */
-    if (strcmp (word, "") == 0)
-      continue;
-
-    /* Go to the next character, as we treat the first character of each word separately. */
-    uppercase_chars = filter_str_with_functor (g_utf8_find_next_char (word, NULL), g_unichar_isupper);
-    /* Keep the first UTF-8 character so that names such as "duck duck go" will produce "ddg". */
-    g_utf8_strncpy (first_word_char, word, 1);
-    tmp_acronym = g_strconcat (acronym,
-                               first_word_char,
-                               uppercase_chars, NULL);
-    g_free (acronym);
-    acronym = tmp_acronym;
-  }
-  lowercase_acronym = g_utf8_strdown (acronym, -1); /* Bangs are usually lowercase */
-  final_bang = g_strconcat ("!", lowercase_acronym, NULL); /* "!" is the prefix for the bang */
-  gtk_editable_set_text (GTK_EDITABLE (row->bang_entry), final_bang);
-  ephy_search_engine_set_bang (row->engine, final_bang);
+  adw_preferences_row_set_title (ADW_PREFERENCES_ROW (address_entry), *url == '\0' ? _("Address (with search term as %s)") : _("Address"));
 }
 
 static void
 on_name_entry_text_changed_cb (EphySearchEngineRow *row,
                                GParamSpec          *pspec,
-                               GtkEntry            *name_entry)
+                               AdwEntryRow         *name_entry)
 {
   const char *new_name = gtk_editable_get_text (GTK_EDITABLE (name_entry));
 
@@ -340,8 +279,12 @@ on_name_entry_text_changed_cb (EphySearchEngineRow *row,
      * "Wikipedia (en)". That's just annoying, so only do it when there hasn't
      * been any bang added yet.
      */
-    if (g_strcmp0 (gtk_editable_get_text (GTK_EDITABLE (row->bang_entry)), "") == 0)
-      update_bang_for_name (row, new_name);
+    if (g_strcmp0 (gtk_editable_get_text (GTK_EDITABLE (row->bang_entry)), "") == 0) {
+      g_autofree char *new_bang = ephy_search_engine_build_bang_for_name (new_name);
+
+      gtk_editable_set_text (GTK_EDITABLE (row->bang_entry), new_bang);
+      ephy_search_engine_set_bang (row->engine, new_bang);
+    }
 
     ephy_search_engine_set_name (row->engine, new_name);
   }
@@ -443,6 +386,21 @@ on_ephy_search_engine_row_constructed (GObject *object)
   on_default_engine_changed_cb (self->manager, NULL, self);
   g_signal_connect_object (self->manager, "notify::default-engine", G_CALLBACK (on_default_engine_changed_cb), self, 0);
 
+  if (ephy_search_engine_get_suggestions_url (self->engine)) {
+    gtk_widget_set_tooltip_text (self->suggestions_box, _("This search engine supports search suggestions"));
+    gtk_image_set_from_icon_name (GTK_IMAGE (self->suggestions_icon), "emblem-ok-symbolic");
+    /* TODO: If kept as "Suggestions" for both states, just put it in the UI file */
+    gtk_label_set_text (GTK_LABEL (self->suggestions_label), _("Suggestions"));
+    gtk_widget_add_css_class (self->suggestions_icon, "success");
+    gtk_widget_add_css_class (self->suggestions_label, "success");
+  } else {
+    gtk_widget_set_tooltip_text (self->suggestions_box, _("This search engine does not support search suggestions"));
+    gtk_image_set_from_icon_name (GTK_IMAGE (self->suggestions_icon), "dialog-warning-symbolic");
+    gtk_label_set_text (GTK_LABEL (self->suggestions_label), _("Suggestions"));
+    gtk_widget_add_css_class (self->suggestions_icon, "warning");
+    gtk_widget_add_css_class (self->suggestions_label, "warning");
+  }
+
   G_OBJECT_CLASS (ephy_search_engine_row_parent_class)->constructed (object);
 }
 
@@ -472,6 +430,9 @@ ephy_search_engine_row_class_init (EphySearchEngineRowClass *klass)
   gtk_widget_class_bind_template_child (widget_class, EphySearchEngineRow, address_entry);
   gtk_widget_class_bind_template_child (widget_class, EphySearchEngineRow, bang_entry);
   gtk_widget_class_bind_template_child (widget_class, EphySearchEngineRow, remove_button);
+  gtk_widget_class_bind_template_child (widget_class, EphySearchEngineRow, suggestions_box);
+  gtk_widget_class_bind_template_child (widget_class, EphySearchEngineRow, suggestions_icon);
+  gtk_widget_class_bind_template_child (widget_class, EphySearchEngineRow, suggestions_label);
 
   gtk_widget_class_bind_template_callback (widget_class, on_radio_button_active_changed_cb);
   gtk_widget_class_bind_template_callback (widget_class, on_remove_button_clicked_cb);

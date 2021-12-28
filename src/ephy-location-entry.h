@@ -73,6 +73,8 @@ void            ephy_location_entry_set_add_bookmark_popover   (EphyLocationEntr
 
 void            ephy_location_entry_show_add_bookmark_popover  (EphyLocationEntry *entry);
 
+GtkWidget      *ephy_location_entry_get_opensearch_button      (EphyLocationEntry *entry);
+
 void            ephy_location_entry_set_reader_mode_visible    (EphyLocationEntry *entry,
                                                                 gboolean           visible);
 

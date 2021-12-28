@@ -19,9 +19,37 @@
  */
 
 #include "config.h"
+
 #include "ephy-debug.h"
 #include "ephy-file-helpers.h"
 #include "ephy-search-engine-manager.h"
+
+static void
+test_search_bang_for_name (void)
+{
+  struct {
+    char *name;
+    char *expected_bang;
+  } test_results[] = {
+    {"", ""},
+    {"  (  ( ", ""},
+    {"  DuckDuckGo   ", "!ddg"},
+    {"DuckDuck go", "!ddg"},
+    {"DuckDuck Go", "!ddg"},
+    {"duck duck go", "!ddg"},
+    {"duckduckgo", "!d"},
+    {"Wikipedia (en)", "!we"},
+    {"Wikipedia(en)", "!we"},
+  };
+
+  for (guint i = 0; i < G_N_ELEMENTS (test_results); i++) {
+    g_autofree char *built_bang = ephy_search_engine_build_bang_for_name (test_results[i].name);
+
+    g_message ("Testing bang %s for name %s in %s", test_results[i].expected_bang,
+               test_results[i].name, __func__);
+    g_assert_cmpstr (test_results[i].expected_bang, ==, built_bang);
+  }
+}
 
 static void
 test_search_engine_manager (void)
@@ -268,7 +296,8 @@ test_parse_bang_search (void)
     g_message ("Testing bang search %s parsing in %s", test_searches[i].bang_search, __func__);
     parsed_search =
       ephy_search_engine_manager_parse_bang_search (manager,
-                                                    test_searches[i].bang_search);
+                                                    test_searches[i].bang_search,
+                                                    NULL);
     g_assert_cmpstr (parsed_search, ==, test_searches[i].expected_url);
   }
 
@@ -292,6 +321,8 @@ main (int   argc,
     return -1;
   }
 
+  /* TODO: test ephy_search_engine_get_bang_for_name(), and every single new OpenSearch functions, also with template URL with optional and non recognized template parameter. */
+  g_test_add_func ("/lib/search-engine-manager/test_search_bang_for_name", test_search_bang_for_name);
   g_test_add_func ("/lib/search-engine-manager/test_search_engine_manager", test_search_engine_manager);
   g_test_add_func ("/lib/search-engine-manager/test_parse_bang_search", test_parse_bang_search);
 

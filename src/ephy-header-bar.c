@@ -24,6 +24,7 @@
 #include "ephy-header-bar.h"
 
 #include "ephy-add-bookmark-popover.h"
+#include "ephy-add-opensearch-engine-button.h"
 #include "ephy-desktop-utils.h"
 #include "ephy-embed-utils.h"
 #include "ephy-file-helpers.h"

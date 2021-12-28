@@ -25,6 +25,7 @@ libephymain_sources = [
   'ephy-action-bar-end.c',
   'ephy-action-bar-start.c',
   'ephy-action-helper.c',
+  'ephy-add-opensearch-engine-button.c',
   'ephy-certificate-dialog.c',
   'ephy-desktop-utils.c',
   'ephy-downloads-paintable.c',
@@ -115,10 +116,23 @@ ephymain_dep = declare_dependency(
   sources: enums
 )
 
+resource_files = files('resources/epiphany.gresource.xml')
+resources = gnome.compile_resources('epiphany-resources',
+    resource_files,
+    c_name: 'epiphany',
+    source_dir: 'resources'
+)
 
-ephy_profile_migrator = executable('ephy-profile-migrator',
+profile_migrator_sources =[
   'profile-migrator/ephy-legacy-web-app-utils.c',
   'profile-migrator/ephy-profile-migrator.c',
+  resources,
+  highlightjs_resources,
+  readability_resources,
+  adguard_resources
+]
+ephy_profile_migrator = executable('ephy-profile-migrator',
+  profile_migrator_sources,
   dependencies: ephymain_dep,
   install: true,
   install_dir: pkglibexecdir,
@@ -164,13 +178,6 @@ executable('epiphany-webapp-provider',
   install: true,
   install_dir: libexecdir,
   install_rpath: pkglibdir
-)
-
-resource_files = files('resources/epiphany.gresource.xml')
-resources = gnome.compile_resources('epiphany-resources',
-    resource_files,
-    c_name: 'epiphany',
-    source_dir: 'resources'
 )
 
 epiphany_sources = [

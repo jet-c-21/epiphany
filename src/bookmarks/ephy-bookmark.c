@@ -22,6 +22,8 @@
 #include "ephy-bookmark.h"
 
 #include "ephy-bookmarks-manager.h"
+#include "ephy-embed-prefs.h"
+#include "ephy-favicon-helpers.h"
 #include "ephy-shell.h"
 #include "ephy-synchronizable.h"
 #include "ephy-sync-utils.h"
@@ -40,6 +42,8 @@ struct _EphyBookmark {
   char *title;
   GSequence *tags;
   gint64 time_added;
+  GIcon *icon;
+  bool icon_loading_started;
 
   /* Firefox Sync specific fields. */
   char *id;
@@ -70,6 +74,7 @@ enum {
   PROP_PARENT_ID,       /* Firefox Sync */
   PROP_PARENT_NAME,     /* Firefox Sync */
   PROP_LOAD_IN_SIDEBAR, /* Firefox Sync */
+  PROP_LOADED_ICON,
   LAST_PROP
 };
 
@@ -165,6 +170,9 @@ ephy_bookmark_get_property (GObject    *object,
     case PROP_ID:
       g_value_set_string (value, ephy_bookmark_get_id (self));
       break;
+    case PROP_LOADED_ICON:
+      g_value_set_object (value, ephy_bookmark_get_loaded_icon (self));
+      break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
   }
@@ -184,6 +192,8 @@ ephy_bookmark_finalize (GObject *object)
   g_free (self->type);
   g_free (self->parent_id);
   g_free (self->parent_name);
+
+  g_clear_object (&self->icon);
 
   G_OBJECT_CLASS (ephy_bookmark_parent_class)->finalize (object);
 }
@@ -252,6 +262,12 @@ ephy_bookmark_class_init (EphyBookmarkClass *klass)
                           TRUE,
                           G_PARAM_READWRITE | G_PARAM_CONSTRUCT | G_PARAM_STATIC_STRINGS);
 
+  obj_properties[PROP_LOADED_ICON] =
+    g_param_spec_object ("loaded-icon",
+                          NULL, NULL,
+                          g_icon_get_type (),
+                          G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
+
   g_object_class_install_properties (object_class, LAST_PROP, obj_properties);
 
   signals[TAG_ADDED] =
@@ -315,6 +331,42 @@ ephy_bookmark_get_time_added (EphyBookmark *self)
   return self->time_added;
 }
 
+static void
+favicon_loaded_cb (GObject      *source,
+                                     GAsyncResult *result,
+                                     gpointer      user_data)
+{
+  WebKitFaviconDatabase *database = WEBKIT_FAVICON_DATABASE (source);
+  g_autoptr (GdkTexture) icon_texture = webkit_favicon_database_get_favicon_finish (database, result, NULL);
+  EphyBookmark *self = user_data;
+  if (icon_texture) {
+    int size = (int)(FAVICON_SIZE * ephy_shell_get_scale_factor (ephy_shell_get_default ()));
+    self->icon = ephy_favicon_get_from_texture_scaled (icon_texture, size, size);
+    if (self->icon) {
+      g_object_notify_by_pspec (G_OBJECT (self), obj_properties[PROP_LOADED_ICON]);
+    }
+  }
+}
+
+void
+ephy_bookmark_start_loading_icon (EphyBookmark *self, GCancellable *cancellable)
+{
+  g_assert (EPHY_IS_BOOKMARK (self));
+  if (!self->icon && !self->icon_loading_started) {
+    EphyEmbedShell *shell = ephy_embed_shell_get_default ();
+    WebKitFaviconDatabase *database = ephy_embed_shell_get_favicon_database (shell);
+    self->icon_loading_started = true;
+    webkit_favicon_database_get_favicon (database, self->url, cancellable, (GAsyncReadyCallback)favicon_loaded_cb, self);
+  }
+}
+
+GIcon *
+ephy_bookmark_get_loaded_icon (EphyBookmark *self)
+{
+  g_assert (EPHY_IS_BOOKMARK (self));
+
+  return self->icon;
+}
 
 void
 ephy_bookmark_set_url (EphyBookmark *self,

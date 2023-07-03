@@ -1384,6 +1384,19 @@ ephy_shell_close_all_windows (EphyShell *shell)
   return retval;
 }
 
+double
+ephy_shell_get_scale_factor (EphyShell *shell)
+{
+  int scale_factor = 1;
+  g_assert (EPHY_IS_SHELL (shell));
+
+  for (GList *windows = gtk_application_get_windows (GTK_APPLICATION (shell)); windows; windows = windows->next) {
+    scale_factor = MAX (scale_factor, gdk_surface_get_scale_factor (gtk_native_get_surface (GTK_NATIVE (windows->data))));
+  }
+
+  return (double)scale_factor;
+}
+
 void
 ephy_shell_try_quit (EphyShell *shell)
 {

@@ -20,6 +20,7 @@
 
 #pragma once
 
+#include <gio/gio.h>
 #include <glib-object.h>
 #include <json-glib/json-glib.h>
 
@@ -36,6 +37,8 @@ EphyBookmark        *ephy_bookmark_new                    (const char *url,
 void                 ephy_bookmark_set_time_added         (EphyBookmark *self,
                                                            gint64        time_added);
 gint64               ephy_bookmark_get_time_added         (EphyBookmark *self);
+void               ephy_bookmark_start_loading_icon         (EphyBookmark *self, GCancellable *cancellable);
+GIcon               *ephy_bookmark_get_loaded_icon         (EphyBookmark *self);
 void                 ephy_bookmark_set_url                (EphyBookmark *self,
                                                            const char   *url);
 const char          *ephy_bookmark_get_url                (EphyBookmark *self);

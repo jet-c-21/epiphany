@@ -110,7 +110,7 @@ GObject                 *ephy_shell_get_prefs_dialog        (EphyShell        *s
 guint                    ephy_shell_get_n_windows           (EphyShell        *shell);
 gboolean                 ephy_shell_close_all_windows       (EphyShell        *shell);
 
-double                 ephy_shell_get_scale_factor       (EphyShell        *shell);
+double                   ephy_shell_get_scale_factor        (EphyShell        *shell);
 
 void                     ephy_shell_try_quit                (EphyShell        *shell);
 

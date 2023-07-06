@@ -74,7 +74,7 @@ enum {
   PROP_PARENT_ID,       /* Firefox Sync */
   PROP_PARENT_NAME,     /* Firefox Sync */
   PROP_LOAD_IN_SIDEBAR, /* Firefox Sync */
-  PROP_LOADED_ICON,
+  PROP_LOADED_ICON,     /* Epiphany */
   LAST_PROP
 };
 
@@ -333,8 +333,8 @@ ephy_bookmark_get_time_added (EphyBookmark *self)
 
 static void
 favicon_loaded_cb (GObject      *source,
-                                     GAsyncResult *result,
-                                     gpointer      user_data)
+                   GAsyncResult *result,
+                   gpointer      user_data)
 {
   WebKitFaviconDatabase *database = WEBKIT_FAVICON_DATABASE (source);
   g_autoptr (GdkTexture) icon_texture = webkit_favicon_database_get_favicon_finish (database, result, NULL);
@@ -342,9 +342,8 @@ favicon_loaded_cb (GObject      *source,
   if (icon_texture) {
     int size = (int)(FAVICON_SIZE * ephy_shell_get_scale_factor (ephy_shell_get_default ()));
     self->icon = ephy_favicon_get_from_texture_scaled (icon_texture, size, size);
-    if (self->icon) {
+    if (self->icon)
       g_object_notify_by_pspec (G_OBJECT (self), obj_properties[PROP_LOADED_ICON]);
-    }
   }
 }
 

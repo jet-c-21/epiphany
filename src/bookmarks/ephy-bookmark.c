@@ -43,7 +43,7 @@ struct _EphyBookmark {
   GSequence *tags;
   gint64 time_added;
   GIcon *icon;
-  bool icon_loading_started;
+  gboolean icon_loading_started;
 
   /* Firefox Sync specific fields. */
   char *id;
@@ -354,7 +354,7 @@ ephy_bookmark_start_loading_icon (EphyBookmark *self, GCancellable *cancellable)
   if (!self->icon && !self->icon_loading_started) {
     EphyEmbedShell *shell = ephy_embed_shell_get_default ();
     WebKitFaviconDatabase *database = ephy_embed_shell_get_favicon_database (shell);
-    self->icon_loading_started = true;
+    self->icon_loading_started = TRUE;
     webkit_favicon_database_get_favicon (database, self->url, cancellable, (GAsyncReadyCallback)favicon_loaded_cb, self);
   }
 }

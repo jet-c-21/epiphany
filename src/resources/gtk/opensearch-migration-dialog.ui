@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <requires lib="gtk+" version="3.20"/>
+  <template class="EphyOpensearchMigrationDialog" parent="AdwWindow">
+    <property name="modal">True</property>
+    <property name="default-width">640</property>
+    <property name="default-height">580</property>
+    <property name="destroy-with-parent">True</property>
+    <!-- TODO: wording TBD -->
+    <property name="title" translatable="yes">Migrate search engines to get search suggestions</property>
+    <child>
+      <object class="GtkBox" id="vbox">
+        <property name="orientation">vertical</property>
+        <child>
+          <object class="GtkHeaderBar">
+            <child type="end">
+              <object class="GtkButton" id="migrate_button">
+                <property name="sensitive">False</property>
+                <property name="label" translatable="yes">_Migrate</property>
+                <property name="use-underline">True</property>
+                <signal name="clicked" handler="on_migrate_button_clicked_cb" object="EphyOpensearchMigrationDialog" swapped="false"/>
+                <style>
+                  <class name="suggested-action"/>
+                </style>
+              </object>
+            </child>
+          </object>
+        </child>
+        <child>
+          <object class="GtkScrolledWindow">
+            <property name="vexpand">True</property>
+            <child>
+              <object class="AdwClamp">
+                <property name="margin-top">12</property>
+                <property name="margin-bottom">12</property>
+                <child>
+                  <object class="GtkBox">
+                    <property name="spacing">6</property>
+                    <property name="orientation">vertical</property>
+                    <child>
+                      <object class="GtkLabel">
+                        <property name="label" translatable="yes">Web now supports adding search engines directly from a web page, if available, eventually getting search suggestions support in the URL entry. A migration is needed to get search suggestions support for your existing search engines.</property>
+                        <property name="wrap">True</property>
+                        <property name="wrap-mode">word-char</property>
+                        <property name="xalign">0</property>
+                        <style>
+                          <class name="dim-label"/>
+                        </style>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkListBox" id="list_box">
+                        <property name="selection-mode">none</property>
+                        <style>
+                          <class name="boxed-list"/>
+                        </style>
+                      </object>
+                    </child>
+                  </object>
+                </child>
+              </object>
+            </child>
+          </object>
+        </child>
+      </object>
+    </child>
+  </template>
+</interface>
+

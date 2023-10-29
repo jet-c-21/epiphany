@@ -339,7 +339,7 @@ char *
 ephy_embed_utils_normalize_or_autosearch_address (const char *address)
 {
   EphySearchEngineManager *manager = ephy_embed_shell_get_search_engine_manager (ephy_embed_shell_get_default ());
-  char *bang_search = ephy_search_engine_manager_parse_bang_search (manager, address);
+  char *bang_search = ephy_search_engine_manager_parse_bang_search (manager, address, NULL);
 
   if (bang_search)
     return bang_search;

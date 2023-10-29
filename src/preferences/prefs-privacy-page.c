@@ -44,10 +44,6 @@ struct _PrefsPrivacyPage {
   GtkWidget *enable_itp_row;
   GtkWidget *enable_website_data_storage_row;
 
-  /* Search Suggestions */
-  GtkWidget *search_suggestions_box;
-  GtkWidget *enable_google_search_suggestions_row;
-
   /* Passwords */
   GtkWidget *remember_passwords_row;
 };
@@ -111,15 +107,6 @@ setup_privacy_page (PrefsPrivacyPage *privacy_page)
                    privacy_page->remember_passwords_row,
                    "active",
                    G_SETTINGS_BIND_DEFAULT);
-
-  /* ======================================================================== */
-  /* ========================== Search Suggestions ========================== */
-  /* ======================================================================== */
-  g_settings_bind (EPHY_SETTINGS_MAIN,
-                   EPHY_PREFS_USE_GOOGLE_SEARCH_SUGGESTIONS,
-                   privacy_page->enable_google_search_suggestions_row,
-                   "active",
-                   G_SETTINGS_BIND_DEFAULT);
 }
 
 static void
@@ -152,10 +139,6 @@ prefs_privacy_page_class_init (PrefsPrivacyPageClass *klass)
   gtk_widget_class_bind_template_child (widget_class, PrefsPrivacyPage, enable_itp_row);
   gtk_widget_class_bind_template_child (widget_class, PrefsPrivacyPage, enable_website_data_storage_row);
 
-  /* Search Suggestions */
-  gtk_widget_class_bind_template_child (widget_class, PrefsPrivacyPage, search_suggestions_box);
-  gtk_widget_class_bind_template_child (widget_class, PrefsPrivacyPage, enable_google_search_suggestions_row);
-
   /* Passwords */
   gtk_widget_class_bind_template_child (widget_class, PrefsPrivacyPage, remember_passwords_row);
 
@@ -167,12 +150,7 @@ prefs_privacy_page_class_init (PrefsPrivacyPageClass *klass)
 static void
 prefs_privacy_page_init (PrefsPrivacyPage *privacy_page)
 {
-  EphyEmbedShellMode mode = ephy_embed_shell_get_mode (ephy_embed_shell_get_default ());
-
   gtk_widget_init_template (GTK_WIDGET (privacy_page));
 
   setup_privacy_page (privacy_page);
-
-  gtk_widget_set_visible (privacy_page->search_suggestions_box,
-                          mode != EPHY_EMBED_SHELL_MODE_APPLICATION);
 }

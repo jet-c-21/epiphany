@@ -5,7 +5,6 @@
     <property name="child">
       <object class="GtkListBox" id="list">
         <property name="selection-mode">none</property>
-        <signal name="row-activated" handler="on_add_search_engine_row_clicked_cb" swapped="yes"/>
         <style>
           <class name="boxed-list"/>
         </style>
@@ -13,3 +12,4 @@
     </property>
   </template>
 </interface>
+

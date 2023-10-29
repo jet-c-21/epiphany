@@ -1,6 +1,6 @@
 option('developer_mode',
   type: 'boolean',
-  value: false,
+  value: true,
   description: 'Enable developer mode'
 )
 

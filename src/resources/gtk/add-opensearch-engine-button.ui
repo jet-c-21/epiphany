@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <template class="EphyAddOpensearchEngineButton" parent="AdwBin">
+    <child>
+      <object class="GtkMenuButton" id="menu_button">
+        <property name="tooltip-text" translatable="yes">Add search engines</property>
+        <property name="popover">popover</property>
+        <child>
+          <object class="GtkImage">
+            <property name="icon-name">ephy-loupe-plus-symbolic</property>
+          </object>
+        </child>
+      </object>
+    </child>
+  </template>
+  <object class="GtkPopover" id="popover">
+    <style>
+      <class name="menu"/>
+    </style>
+    <child>
+      <object class="GtkListBox" id="list_box">
+        <property name="selection-mode">none</property>
+        <signal name="row-activated" handler="on_opensearch_row_activated_cb"/>
+      </object>
+    </child>
+  </object>
+</interface>
+

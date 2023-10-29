@@ -34,18 +34,6 @@
       </object>
     </child>
     <child>
-      <object class="AdwPreferencesGroup" id="search_suggestions_box">
-        <property name="title" translatable="yes">Search Suggestions</property>
-        <child>
-          <object class="AdwSwitchRow" id="enable_google_search_suggestions_row">
-            <property name="subtitle" translatable="yes">Enable search suggestions in the URL entry.</property>
-            <property name="title" translatable="yes">_Google Search Suggestions</property>
-            <property name="use_underline">True</property>
-          </object>
-        </child>
-      </object>
-    </child>
-    <child>
       <object class="AdwPreferencesGroup">
         <property name="title" translatable="yes">Personal Data</property>
         <child>
@@ -89,3 +77,4 @@
     </child>
   </template>
 </interface>
+

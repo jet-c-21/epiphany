@@ -108,27 +108,27 @@ load_search_engines_from_settings (EphySearchEngineManager *manager)
   g_settings_get (EPHY_SETTINGS_MAIN, EPHY_PREFS_SEARCH_ENGINES, "aa{sv}", &iter);
 
   while ((variant = g_variant_iter_next_value (iter))) {
-    GVariantDict dict;
-    const char *name, *url, *bang;
     g_autoptr (EphySearchEngine) search_engine = NULL;
+    g_auto (GVariantDict) dict = {};
+    /* Make sure we keep our state clean and respect the non-NULL expectations. */
+    const char *name = "", *url = "", *bang = "";
+    /* These need to be NULL when there isn't a corresponding key in the dict. */
+    const char *suggestions_url = NULL, *opensearch_url = NULL;
 
     g_variant_dict_init (&dict, variant);
 
-    /* All of those checks are just to make sure we keep our state clean and
-     * respect the non-NULL expectations.
-     */
-    if (!g_variant_dict_lookup (&dict, "name", "&s", &name))
-      name = "";
-    if (!g_variant_dict_lookup (&dict, "url", "&s", &url))
-      url = "";
-    if (!g_variant_dict_lookup (&dict, "bang", "&s", &bang))
-      bang = "";
-    g_variant_dict_clear (&dict);
+    g_variant_dict_lookup (&dict, "name", "&s", &name);
+    g_variant_dict_lookup (&dict, "url", "&s", &url);
+    g_variant_dict_lookup (&dict, "bang", "&s", &bang);
+    g_variant_dict_lookup (&dict, "suggestions_url", "&s", &suggestions_url);
+    g_variant_dict_lookup (&dict, "opensearch_url", "&s", &opensearch_url);
 
     search_engine = g_object_new (EPHY_TYPE_SEARCH_ENGINE,
                                   "name", name,
                                   "url", url,
                                   "bang", bang,
+                                  "suggestions-url", suggestions_url,
+                                  "opensearch-url", opensearch_url,
                                   NULL);
     g_assert (EPHY_IS_SEARCH_ENGINE (search_engine));
 
@@ -364,6 +364,12 @@ ephy_search_engine_manager_add_engine (EphySearchEngineManager *manager,
                               1);
 }
 
+/**
+ * ephy_search_engine_manager_delete_engine:
+ * @engine: The search engine to delete from @manager.
+ *
+ * Deletes search engine @engine from @manager.
+ */
 void
 ephy_search_engine_manager_delete_engine (EphySearchEngineManager *manager,
                                           EphySearchEngine        *engine)
@@ -570,6 +576,7 @@ parse_bang_query (EphySearchEngineManager  *manager,
 
 /**
  * ephy_search_engine_manager_parse_bang_search:
+ * @out_engine: (out) (nullable): the engine that was used
  *
  * This function looks at the first and last word of @search, checks if
  * one of them is the bang of one of the search engines in @manager, and
@@ -589,16 +596,43 @@ parse_bang_query (EphySearchEngineManager  *manager,
  *   process the search using the default search engine in that case.
  */
 char *
-ephy_search_engine_manager_parse_bang_search (EphySearchEngineManager *manager,
-                                              const char              *search)
+ephy_search_engine_manager_parse_bang_search (EphySearchEngineManager  *manager,
+                                              const char               *search,
+                                              EphySearchEngine        **out_engine)
 {
   EphySearchEngine *engine = NULL;
   g_autofree char *no_bangs_query = parse_bang_query (manager, search, &engine);
 
-  if (no_bangs_query)
+  if (no_bangs_query) {
+    if (out_engine)
+      *out_engine = engine;
     return ephy_search_engine_build_search_address (engine, no_bangs_query);
-  else
+  } else {
     return NULL;
+  }
+}
+
+/**
+ * ephy_search_engine_manager_parse_bang_suggestions:
+ *
+ * Same as ephy_search_engine_manager_parse_bang_search() but for the suggestions
+ * URL instead of the search URL.
+ */
+char *
+ephy_search_engine_manager_parse_bang_suggestions (EphySearchEngineManager  *manager,
+                                                   const char               *search,
+                                                   EphySearchEngine        **out_engine)
+{
+  EphySearchEngine *engine = NULL;
+  g_autofree char *no_bangs_query = parse_bang_query (manager, search, &engine);
+
+  if (no_bangs_query) {
+    if (out_engine)
+      *out_engine = engine;
+    return ephy_search_engine_build_suggestions_address (engine, no_bangs_query);
+  } else {
+    return NULL;
+  }
 }
 
 /**
@@ -621,6 +655,7 @@ ephy_search_engine_manager_save_to_settings (EphySearchEngineManager *manager)
 
   while ((item = g_list_model_get_item (G_LIST_MODEL (manager), i++))) {
     g_autoptr (EphySearchEngine) engine = EPHY_SEARCH_ENGINE (item);
+    const char *suggestions_url, *opensearch_url;
     GVariantDict dict;
 
     g_assert (EPHY_IS_SEARCH_ENGINE (engine));
@@ -630,11 +665,18 @@ ephy_search_engine_manager_save_to_settings (EphySearchEngineManager *manager)
     g_variant_dict_insert (&dict, "url", "s", ephy_search_engine_get_url (engine));
     g_variant_dict_insert (&dict, "bang", "s", ephy_search_engine_get_bang (engine));
 
+    /* Let's not insert the OpenSearch-specific fields when they are not actually used. */
+    suggestions_url = ephy_search_engine_get_suggestions_url (engine);
+    opensearch_url = ephy_search_engine_get_opensearch_url (engine);
+    if (suggestions_url)
+      g_variant_dict_insert (&dict, "suggestions_url", "s", suggestions_url);
+    if (opensearch_url)
+      g_variant_dict_insert (&dict, "opensearch_url", "s", opensearch_url);
+
     g_variant_builder_add_value (&builder, g_variant_dict_end (&dict));
   }
   variant = g_variant_builder_end (&builder);
   g_settings_set_value (EPHY_SETTINGS_MAIN, EPHY_PREFS_SEARCH_ENGINES, variant);
-
   g_settings_set_value (EPHY_SETTINGS_MAIN, EPHY_PREFS_DEFAULT_SEARCH_ENGINE,
                         g_variant_new_string (ephy_search_engine_get_name (manager->default_engine)));
 }

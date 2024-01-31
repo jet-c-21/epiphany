@@ -10,6 +10,7 @@
     "desktop-file-name-suffix" : " (Epiphany Technology Preview)",
     "finish-args" : [
         "--device=dri",
+        "--device=input",
         "--filesystem=xdg-download",
         "--share=ipc",
         "--share=network",

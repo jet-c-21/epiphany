@@ -10,6 +10,7 @@
     "desktop-file-name-suffix" : " (Canary)",
     "finish-args" : [
         "--device=dri",
+        "--device=input",
         "--filesystem=xdg-download",
         "--share=ipc",
         "--share=network",

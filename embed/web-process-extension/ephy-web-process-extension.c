@@ -37,6 +37,7 @@
 #include <gtk/gtk.h>
 #include <jsc/jsc.h>
 #include <libsoup/soup.h>
+#include <pwquality.h>
 #include <string.h>
 #include <webkit/webkit-web-process-extension.h>
 
@@ -164,8 +165,6 @@ web_page_context_menu (WebKitWebPage          *web_page,
 {
   EphyWebProcessExtension *extension;
   g_autofree char *string = NULL;
-  gboolean is_editable;
-  gboolean is_password;
   GVariantBuilder builder;
   WebKitFrame *frame;
   g_autoptr (JSCContext) js_context = NULL;
@@ -181,19 +180,9 @@ web_page_context_menu (WebKitWebPage          *web_page,
   js_value = jsc_context_evaluate (js_context, "window.getSelection().toString();", -1);
   if (!jsc_value_is_null (js_value) && !jsc_value_is_undefined (js_value))
     string = jsc_value_to_string (js_value);
-  g_object_unref (js_value);
-
-  js_value = jsc_context_evaluate (js_context, "contextMenuElementIsEditable;", -1);
-  is_editable = jsc_value_to_boolean (js_value);
-  g_object_unref (js_value);
-
-  js_value = jsc_context_evaluate (js_context, "contextMenuElementIsPassword;", -1);
-  is_password = jsc_value_to_boolean (js_value);
 
   g_variant_builder_init (&builder, G_VARIANT_TYPE ("a{sv}"));
   g_variant_builder_add (&builder, "{sv}", "SelectedText", g_variant_new_string (string ? g_strstrip (string) : ""));
-  g_variant_builder_add (&builder, "{sv}", "IsEditable", g_variant_new_boolean (is_editable));
-  g_variant_builder_add (&builder, "{sv}", "IsPassword", g_variant_new_boolean (is_password));
   webkit_context_menu_set_user_data (context_menu,
                                      g_variant_builder_end (&builder));
 
@@ -706,6 +695,26 @@ js_should_remember_passwords (EphyWebProcessExtension *extension)
   return extension->should_remember_passwords && !extension->is_private_profile;
 }
 
+static char *
+js_generate_secure_password (void)
+{
+  static pwquality_settings_t *settings = NULL;
+  char *result;
+  int ret;
+
+  if (!settings)
+    settings = pwquality_default_settings ();
+
+  /* 128 is bits of entropy. See https://security.stackexchange.com/a/257535 */
+  ret = pwquality_generate (settings, 128, &result);
+  if (ret < 0) {
+    g_warning ("Failed to generate secure random password: %s", pwquality_strerror (NULL, 0, ret, NULL));
+    return NULL;
+  }
+
+  return g_steal_pointer (&result);
+}
+
 static void
 js_exception_handler (JSCContext   *context,
                       JSCException *exception)
@@ -853,6 +862,13 @@ window_object_cleared_cb (WebKitScriptWorld       *world,
                                         g_object_ref (extension), g_object_unref,
                                         G_TYPE_BOOLEAN, 0);
   jsc_value_object_set_property (js_ephy, "shouldRememberPasswords", js_function);
+  g_clear_object (&js_function);
+
+  js_function = jsc_value_new_function (js_context,
+                                        "generateSecurePassword",
+                                        G_CALLBACK (js_generate_secure_password), NULL, NULL,
+                                        G_TYPE_STRING, 0);
+  jsc_value_object_set_property (js_ephy, "generateSecurePassword", js_function);
   g_clear_object (&js_function);
 }
 

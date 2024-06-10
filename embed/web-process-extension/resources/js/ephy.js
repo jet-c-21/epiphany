@@ -298,17 +298,52 @@ Ephy.PreFillUserMenu = class PreFillUserMenu
     }
 };
 
-Ephy.formControlsAssociated = function(pageID, frameID, forms, serializer)
+Ephy.formControlsAssociated = function(pageID, frameID, elements, serializer)
 {
-    Ephy.formManagers = [];
+    let formElements = [];
 
-    for (let i = 0; i < forms.length; i++) {
-        if (!(forms[i] instanceof HTMLFormElement))
+    for (let element of elements) {
+        if (!(element instanceof HTMLFormElement))
             continue;
-        const formManager = new Ephy.FormManager(pageID, frameID, forms[i]);
-        formManager.handlePasswordForms(serializer);
+
+        const formManager = new Ephy.FormManager(pageID, frameID, element, serializer);
         formManager.preFillForms();
-        Ephy.formManagers.push(formManager);
+        Ephy.FormManager._managers.push(formManager);
+
+        formElements.push(element);
+    }
+
+	// This function is called in two scenarios:
+	//
+	// 1) Form is created. One of the elements will be an HTMLFormElement. We
+	//    would have found it above and created a FormManager.
+	// 2) Elements are moved between existing forms. The FormManager should
+	//    already exist from a previous call to this function.
+	//
+	// WebKit may batch updates together before eventually firing the form
+	// controls associated event later on, so possibly there could be multiple
+	// forms here, and both scenarios could be happening at the same time.
+    for (let element of elements) {
+        if (element instanceof HTMLFormElement)
+            continue;
+
+        // We want to find each parent form element and process it only once.
+        // Anything in formElements has already been processed.
+        let formElement = element.closest('form');
+        if (formElement && !formElements.includes(formElement)) {
+            if (!formElement instanceof HTMLFormElement) {
+                Ephy.log('Attempted to find parent HTMLFormElement, but found something else instead; this is probably an Epiphany bug');
+                continue;
+            }
+            formElements.push(formElement);
+
+            let manager = Ephy.FormManager.managerForForm(formElement);
+            if (!manager) {
+                Ephy.log('Missing form manager for a form element that should have one already; this is probably an Epiphany bug');
+                continue;
+            }
+            manager.preFillForms();
+        }
     }
 };
 
@@ -316,8 +351,8 @@ Ephy.handleFormSubmission = function(pageID, frameID, form)
 {
     // FIXME: Find out: is it really possible to have multiple frames with same window object???
     let formManager = null;
-    for (let i = 0; i < Ephy.formManagers.length; i++) {
-        const manager = Ephy.formManagers[i];
+    for (let i = 0; i < Ephy.FormManager._managers.length; i++) {
+        const manager = Ephy.FormManager._managers[i];
         if (manager.frameID() === frameID && manager.form() === form) {
             formManager = manager;
             break;
@@ -326,7 +361,7 @@ Ephy.handleFormSubmission = function(pageID, frameID, form)
 
     if (!formManager) {
         formManager = new Ephy.FormManager(pageID, frameID, form);
-        Ephy.formManagers.push(formManager);
+        Ephy.FormManager._managers.push(formManager);
     }
 
     formManager.handleFormSubmission();
@@ -471,7 +506,9 @@ Ephy.PasswordManager = class PasswordManager
 
 Ephy.FormManager = class FormManager
 {
-    constructor(pageID, frameID, form)
+    static _managers = [];
+
+    constructor(pageID, frameID, form, serializer)
     {
         this._pageID = pageID;
         this._frameID = frameID;
@@ -480,9 +517,19 @@ Ephy.FormManager = class FormManager
         this._preFillUserMenu = null;
         this._elementBeingAutoFilled = null;
         this._submissionHandled = false;
+        this._passwordFormMessageSerializer = serializer;
+
+        this._form.addEventListener('focus', this._formFocused.bind(this), true);
+
+        Ephy.FormManager._managers.push(this);
     }
 
     // Public
+
+    static managerForForm(element)
+    {
+        return Ephy.FormManager._managers.find((manager) => manager._form === element);
+    }
 
     frameID()
     {
@@ -492,16 +539,6 @@ Ephy.FormManager = class FormManager
     form()
     {
         return this._form;
-    }
-
-    handlePasswordForms(serializer)
-    {
-        if (!this._containsPasswordElement())
-            return;
-
-        Ephy.log('Password form element detected, hooking password form focused callback');
-        this._passwordFormMessageSerializer = serializer;
-        this._form.addEventListener('focus', this._passwordFormFocused.bind(this), true);
     }
 
     isAutoFilling(element)
@@ -635,18 +672,6 @@ Ephy.FormManager = class FormManager
 
     // Private
 
-    _containsPasswordElement()
-    {
-        for (let i = 0; i < this._form.elements.length; i++) {
-            const element = this._form.elements[i];
-            if (element instanceof HTMLInputElement) {
-                if (element.type === 'password' || element.type === 'adminpw')
-                    return true;
-            }
-        }
-        return false;
-    }
-
     _getFormAction()
     {
         // We used to naively access this._form.action to get the action
@@ -670,8 +695,92 @@ Ephy.FormManager = class FormManager
         return action ? new URL(action, window.location) : null;
     }
 
-    _passwordFormFocused(event)
+    static _isNewPasswordElement(element)
     {
+        return element.getAttribute('autocomplete').includes('new-password');
+    }
+
+    // FIXME: This code a bad version of Ephy.PreFillUserMenu. The code
+    // duplication should be reconciled somehow.
+    _newPasswordElementFocused(event)
+    {
+        const mainDiv = document.createElement('div');
+        mainDiv.id = 'ephy-generate-secure-password-container';
+
+        const passwordElement = event.target;
+        const elementRect = event.target.getBoundingClientRect();
+
+        // 2147483647 is the maximum value browsers will take for z-index.
+        // See http://stackoverflow.com/questions/8565821/css-max-z-index-value
+        mainDiv.style.cssText = 'position: absolute;' +
+            'z-index: 2147483647;' +
+            'cursor: default;' +
+            'background-color: white;' +
+            'box-shadow: 5px 5px 5px rgba(0,0,0,0.2);' +
+            'border-top: 0px;' +
+            'border-radius: 8px;' +
+            'padding: 12px 0px;' +
+            '-webkit-user-modify: read-only ! important;';
+        mainDiv.style.width = 200; //this._userElement.offsetWidth + 'px';
+        mainDiv.style.left = elementRect.left + document.body.scrollLeft + 'px';
+        mainDiv.style.top = elementRect.top + elementRect.height + document.body.scrollTop + 'px';
+
+        // FIXME: Probably shouldn't use a list here to create only a single element.
+        const ul = document.createElement('ul');
+        ul.style.cssText = 'margin: 0; padding: 0;';
+        ul.tabindex = -1;
+        mainDiv.appendChild(ul);
+
+        this._selected = null;
+
+        const li = document.createElement('li');
+        li.style.cssText = 'list-style-type: none ! important;' +
+            'background-image: none ! important;' +
+            'padding: 3px 6px ! important;' +
+            'color: black;' +
+            'margin: 0px;';
+        // FIXME: selection colors.
+        li.tabindex = -1;
+        ul.appendChild(li);
+
+        const anchor = document.createElement('a');
+        anchor.style.cssText = 'font-weight: normal ! important;' +
+            'font-family: sans ! important;' +
+            'text-decoration: none ! important;' +
+            'color: black;' +
+            '-webkit-user-modify: read-only ! important;';
+        // FIXME: selection colors.
+        anchor.textContent = Ephy._("Generate a Secure Password");
+        li.appendChild(anchor);
+
+        // FIXME: Handle keyboard input too
+        li.addEventListener('mousedown', event => {
+            passwordElement.value = Ephy.generateSecurePassword();
+		    const menu = document.getElementById('ephy-generate-secure-password-container');
+		    if (menu)
+		        menu.parentNode.removeChild(menu);
+        }, true);
+
+        document.body.appendChild(mainDiv);
+    }
+
+    _containsPasswordElement()
+    {
+        for (let i = 0; i < this._form.elements.length; i++) {
+            const element = this._form.elements[i];
+            if (element instanceof HTMLInputElement) {
+                if (element.type === 'password' || element.type === 'adminpw')
+                    return true;
+            }
+        }
+        return false;
+    }
+
+    _formFocused(event)
+    {
+        if (!this._containsPasswordElement())
+            return;
+
         let isFormActionInsecure = false;
         const actionURL = this._getFormAction();
         if (actionURL) {
@@ -706,6 +815,9 @@ Ephy.FormManager = class FormManager
         return passwordFields;
     }
 
+    // forAutofill is true if we are loading the page and autofilling saved
+    // passwords, and false if we are submitting the page and prompting the
+    // user to save submitted passwords.
     _findFormAuthElements(forAutofill)
     {
         const passwordNodes = this._findPasswordFields();
@@ -728,12 +840,25 @@ Ephy.FormManager = class FormManager
             }
         }
 
+       if (forAutofill) {
+           for (let node of passwordNodes) {
+               if (Ephy.FormManager._isNewPasswordElement(node.element))
+                   node.element.addEventListener('focus', this._newPasswordElementFocused.bind(this), true);
+               break;
+           }
+       }
+
         // Choose password field that contains the password that we want to store
         // To do that, we compare the field values. We can only do this when user
         // submits login data, because otherwise all the fields are empty. In that
         // case just pick the first field.
         let passwordNodeIndex = 0;
         if (!forAutofill && passwordNodes.length !== 1) {
+            for (let node of passwordNodes) {
+                if (Ephy.FormManager._isNewPasswordElement(node.element))
+                    return { 'usernameNode' : usernameNode, 'passwordNode' : node };
+            }
+
             // Get values of all password fields.
             const passwords = [];
             for (let i = passwordNodes.length - 1; i >= 0; i--)
@@ -827,12 +952,3 @@ Ephy.FormManager = class FormManager
         return formAuth;
     }
 };
-
-let contextMenuElementIsEditable = false;
-let contextMenuElementIsPassword = false;
-
-window.document.addEventListener('contextmenu', (event) => {
-    // isContentEditable is always false, in practice this seems functional enough.
-    contextMenuElementIsEditable = event.target.tagName.toLowerCase() === 'input';
-    contextMenuElementIsPassword = event.target.type === 'password';
-});

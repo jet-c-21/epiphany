@@ -62,6 +62,11 @@ GQuark webapp_error_quark (void);
 G_DEFINE_QUARK (webapp - error - quark, webapp_error)
 #define WEBAPP_ERROR webapp_error_quark ()
 
+G_DEFINE_BOXED_TYPE (EphyWebApplication, ephy_web_application, ephy_web_application_copy, ephy_web_application_free)
+
+#define EPHY_WEBAPP_KEY_SCOPE "X-Epiphany-PWA-Scope"
+#define EPHY_WEBAPP_KEY_URL "X-Epiphany-PWA-URL"
+
 typedef enum {
   WEBAPP_ERROR_FAILED = 1001,
   WEBAPP_ERROR_EXISTS = 1002
@@ -308,6 +313,7 @@ create_desktop_file (const char  *id,
                      const char  *address,
                      const char  *profile_dir,
                      const char  *install_token,
+                     const char  *scope,
                      GError     **error)
 {
   g_autofree char *filename = NULL;
@@ -327,9 +333,8 @@ create_desktop_file (const char  *id,
   }
 
   file = g_key_file_new ();
-  exec_string = g_strdup_printf ("epiphany --application-mode \"--profile=%s\" %s",
-                                 profile_dir,
-                                 address);
+  exec_string = g_strdup_printf (BINDIR "/epiphany --application-mode \"--profile=%s\" %%u",
+                                 profile_dir);
   g_key_file_set_value (file, "Desktop Entry", "Exec", exec_string);
   g_key_file_set_value (file, "Desktop Entry", "StartupNotify", "true");
   g_key_file_set_value (file, "Desktop Entry", "Terminal", "false");
@@ -340,6 +345,9 @@ create_desktop_file (const char  *id,
   g_key_file_set_value (file, "Desktop Entry", "StartupWMClass", wm_class);
 
   g_key_file_set_value (file, "Desktop Entry", "X-Purism-FormFactor", "Workstation;Mobile;");
+
+  g_key_file_set_string (file, "Desktop Entry", EPHY_WEBAPP_KEY_SCOPE, scope);
+  g_key_file_set_string (file, "Desktop Entry", EPHY_WEBAPP_KEY_URL, address);
 
   desktop_entry = g_key_file_to_data (file, NULL, NULL);
 
@@ -372,6 +380,7 @@ gboolean
 ephy_web_application_create (const char                 *id,
                              const char                 *address,
                              const char                 *install_token,
+                             const char                 *scope,
                              EphyWebApplicationOptions   options,
                              GError                    **error)
 {
@@ -409,7 +418,7 @@ ephy_web_application_create (const char                 *id,
   close (fd);
 
   /* Create the deskop file. */
-  if (!create_desktop_file (id, address, profile_dir, install_token, error))
+  if (!create_desktop_file (id, address, profile_dir, install_token, scope, error))
     return FALSE;
 
   ephy_web_application_initialize_settings (profile_dir, options);
@@ -556,6 +565,22 @@ ephy_web_application_launch (const char *id)
     g_warning ("Failed to launch app '%s': %s", desktop_basename, error->message);
 }
 
+EphyWebApplication *
+ephy_web_application_copy (EphyWebApplication *app)
+{
+  EphyWebApplication *new_app = g_new0 (EphyWebApplication, 1);
+
+  new_app->id = g_strdup (app->id);
+  new_app->name = g_strdup (app->name);
+  new_app->icon_path = g_strdup (app->icon_path);
+  new_app->tmp_icon_path = g_strdup (app->tmp_icon_path);
+  new_app->url = g_strdup (app->url);
+  new_app->desktop_file = g_strdup (app->desktop_file);
+  new_app->desktop_path = g_strdup (app->desktop_path);
+
+  return new_app;
+}
+
 void
 ephy_web_application_free (EphyWebApplication *app)
 {
@@ -637,6 +662,30 @@ ephy_web_application_get_tmp_icon_path (const char  *desktop_path,
   return g_steal_pointer (&tmp_file_path);
 }
 
+static char *
+extract_url_from_keyfile (GKeyFile *key_file)
+{
+  g_auto (GStrv) argv = NULL;
+  int argc;
+  char *url;
+  g_autofree char *exec = NULL;
+
+  /* New files contain an entry for the URL, old ones we must extract it from the exec line. */
+
+  url = g_key_file_get_string (key_file, "Desktop Entry", EPHY_WEBAPP_KEY_URL, NULL);
+  if (url)
+    return url;
+
+  exec = g_key_file_get_string (key_file, "Desktop Entry", "Exec", NULL);
+  if (!exec)
+    return NULL;
+
+  if (!g_shell_parse_argv (exec, &argc, &argv, NULL))
+    return NULL;
+
+  return g_strdup (argv[argc - 1]);
+}
+
 EphyWebApplication *
 ephy_web_application_for_profile_directory (const char            *profile_dir,
                                             EphyWebAppNeedTmpIcon  need_tmp_icon)
@@ -644,9 +693,6 @@ ephy_web_application_for_profile_directory (const char            *profile_dir,
   g_autoptr (EphyWebApplication) app = NULL;
   const char *id;
   g_autoptr (GDesktopAppInfo) desktop_info = NULL;
-  const char *exec;
-  int argc;
-  g_auto (GStrv) argv = NULL;
   g_autoptr (GFile) file = NULL;
   g_autoptr (GFileInfo) file_info = NULL;
   g_autoptr (GError) error = NULL;
@@ -677,15 +723,15 @@ ephy_web_application_for_profile_directory (const char            *profile_dir,
         g_warning ("Failed to get tmp icon path for app %s: %s", app->id, error->message);
     }
 
-    exec = g_key_file_get_string (key_file, "Desktop Entry", "Exec", NULL);
-    if (g_shell_parse_argv (exec, &argc, &argv, NULL))
-      app->url = g_strdup (argv[argc - 1]);
+    app->url = extract_url_from_keyfile (key_file);
 
     file = g_file_new_for_path (profile_dir);
 
     /* FIXME: this should use TIME_CREATED but it does not seem to be working. */
     file_info = g_file_query_info (file, G_FILE_ATTRIBUTE_TIME_MODIFIED, 0, NULL, NULL);
     app->install_date_uint64 = g_file_info_get_attribute_uint64 (file_info, G_FILE_ATTRIBUTE_TIME_MODIFIED);
+
+    app->scope = g_key_file_get_string (key_file, "Desktop Entry", EPHY_WEBAPP_KEY_SCOPE, NULL);
 
     return g_steal_pointer (&app);
   }
@@ -696,7 +742,11 @@ ephy_web_application_for_profile_directory (const char            *profile_dir,
     return NULL;
   }
 
-  desktop_info = g_desktop_app_info_new_from_filename (app->desktop_path);
+  key_file = g_key_file_new ();
+  if (!g_key_file_load_from_file(key_file, app->desktop_path, G_KEY_FILE_KEEP_COMMENTS | G_KEY_FILE_KEEP_TRANSLATIONS, NULL))
+    return NULL;
+
+  desktop_info = g_desktop_app_info_new_from_keyfile (key_file);
   if (!desktop_info) {
     g_clear_pointer (&app, ephy_web_application_free); /* avoid a scan-build warning */
     return NULL;
@@ -704,10 +754,7 @@ ephy_web_application_for_profile_directory (const char            *profile_dir,
 
   app->name = g_strdup (g_app_info_get_name (G_APP_INFO (desktop_info)));
   app->icon_path = g_desktop_app_info_get_string (desktop_info, "Icon");
-  exec = g_app_info_get_commandline (G_APP_INFO (desktop_info));
-  if (g_shell_parse_argv (exec, &argc, &argv, NULL))
-    app->url = g_strdup (argv[argc - 1]);
-
+  app->url = extract_url_from_keyfile (key_file);
   file = g_file_new_for_path (app->desktop_path);
 
   /* FIXME: this should use TIME_CREATED but it does not seem to be working. */
@@ -778,6 +825,81 @@ void
 ephy_web_application_free_application_list (GList *list)
 {
   g_list_free_full (list, (GDestroyNotify)ephy_web_application_free);
+}
+
+gboolean
+ephy_web_application_scope_matches_url (const char *url, const char *scope)
+{
+  /* https://w3c.github.io/manifest/#dfn-within-scope */
+  g_autoptr (GUri) uri = g_uri_parse (url, G_URI_FLAGS_SCHEME_NORMALIZE, NULL);
+  g_autoptr (GUri) scope_uri = g_uri_parse (scope, G_URI_FLAGS_SCHEME_NORMALIZE, NULL);
+  if (!uri || !scope_uri)
+    return FALSE;
+
+  if (!ephy_guri_is_same_origin(uri, scope_uri))
+    return FALSE;
+
+  return g_str_has_prefix (g_uri_get_path (uri), g_uri_get_path (scope_uri));
+}
+
+gboolean
+ephy_web_application_will_handle_all_uris (const GStrv uris)
+{
+  GList *applications = NULL;
+  gboolean handled = TRUE;
+
+  if (!uris)
+    return FALSE;
+
+  applications = ephy_web_application_get_application_list ();
+
+  for (GList *l = applications; l; l = g_list_next (l)) {
+    EphyWebApplication *app = l->data;
+    for (guint i = 0; uris[i]; i++) {
+      if (!app->scope || !ephy_web_application_scope_matches_url (uris[i], app->scope)) {
+        handled = FALSE;
+        break;
+      }
+    }
+  }
+
+  ephy_web_application_free_application_list (applications);
+  return handled;
+}
+
+gboolean
+ephy_web_application_launch_by_url (const char *url)
+{
+  GList *applications = ephy_web_application_get_application_list ();
+  GList *uris = g_list_append (NULL, (char*)url);
+  gboolean handled = FALSE;
+
+  for (GList *l = applications; l; l = g_list_next (l)) {
+    EphyWebApplication *app = l->data;
+    g_autoptr (GDesktopAppInfo) appinfo = NULL;
+    g_autoptr (GError) error = NULL;
+  
+    if (!app->scope || !ephy_web_application_scope_matches_url (url, app->scope))
+      continue;
+
+    /* TODO: Add option to xdp_portal_dynamic_launcher_launch() to pass a URL. */
+    appinfo = g_desktop_app_info_new_from_filename (app->desktop_path);
+    if (!appinfo)
+      continue;
+
+    if (!g_app_info_launch_uris (G_APP_INFO (appinfo), uris, NULL, &error)) {
+      g_warning ("Failed to launch web application: %s", error->message);
+      continue;
+    }
+
+    handled = TRUE;
+    break;
+  }
+
+  g_list_free (uris);
+  ephy_web_application_free_application_list (applications);
+
+  return handled;
 }
 
 /**
@@ -891,28 +1013,33 @@ ephy_web_application_initialize_settings (const char                *profile_dir
   }
 }
 
-static gboolean
-urls_have_same_origin (const char *a_url,
-                       const char *b_url)
+gboolean
+ephy_guri_is_same_origin (GUri *a_uri,
+                          GUri *b_uri)
+{
+  if (!a_uri || !b_uri || !g_uri_get_host (a_uri) || !g_uri_get_host (b_uri))
+    return FALSE;
+  if (g_uri_get_port (a_uri) != g_uri_get_port (b_uri))
+    return FALSE;
+  if (g_ascii_strcasecmp (g_uri_get_host (a_uri), g_uri_get_host (b_uri)) != 0)
+    return FALSE;
+  if (g_strcmp0 (g_uri_get_scheme (a_uri), g_uri_get_scheme (b_uri)) != 0)
+    return FALSE;
+
+  return TRUE;
+}
+
+gboolean
+ephy_uri_is_same_origin (const char *a_url,
+                         const char *b_url)
 {
   g_autoptr (GUri) a_uri = NULL;
   g_autoptr (GUri) b_uri = NULL;
 
-  a_uri = g_uri_parse (a_url, G_URI_FLAGS_PARSE_RELAXED, NULL);
-  if (!a_uri || !g_uri_get_host (a_uri))
-    return FALSE;
+  a_uri = g_uri_parse (a_url, G_URI_FLAGS_PARSE_RELAXED | G_URI_FLAGS_SCHEME_NORMALIZE, NULL);
+  b_uri = g_uri_parse (b_url, G_URI_FLAGS_PARSE_RELAXED | G_URI_FLAGS_SCHEME_NORMALIZE, NULL);
 
-  b_uri = g_uri_parse (b_url, G_URI_FLAGS_PARSE_RELAXED, NULL);
-  if (!b_uri || !g_uri_get_host (b_uri))
-    return FALSE;
-
-  if (strcmp (g_uri_get_scheme (a_uri), g_uri_get_scheme (b_uri)) != 0)
-    return FALSE;
-
-  if (g_uri_get_port (a_uri) != g_uri_get_port (b_uri))
-    return FALSE;
-
-  return g_ascii_strcasecmp (g_uri_get_host (a_uri), g_uri_get_host (b_uri)) == 0;
+  return ephy_guri_is_same_origin (a_uri, b_uri);
 }
 
 gboolean
@@ -930,7 +1057,9 @@ ephy_web_application_is_uri_allowed (const char *uri)
   if (g_str_has_prefix (uri, "blob:") || g_str_has_prefix (uri, "data:"))
     return TRUE;
 
-  if (urls_have_same_origin (uri, webapp->url))
+  if (webapp->scope && ephy_web_application_scope_matches_url (uri, webapp->scope))
+    return TRUE;
+  else if (!webapp->scope && ephy_uri_is_same_origin (uri, webapp->url))
     return TRUE;
 
   if (g_strcmp0 (uri, "about:blank") == 0)
@@ -979,6 +1108,7 @@ ephy_web_application_save (EphyWebApplication *app)
   gboolean changed = FALSE;
   gboolean saved = FALSE;
   g_autoptr (GError) error = NULL;
+  int url_offset;
 
   g_assert (!ephy_is_running_inside_sandbox ());
 
@@ -1012,10 +1142,16 @@ ephy_web_application_save (EphyWebApplication *app)
   strings = g_strsplit (exec, " ", -1);
 
   exec_length = g_strv_length (strings);
-  if (g_strcmp0 (strings[exec_length - 1], app->url) != 0) {
+
+  /* New desktop files end in `%u`, old ones did not. */
+  url_offset = 1;
+  if (g_strcmp0 (strings[exec_length - 1], "%u") == 0)
+    url_offset = 2;
+
+  if (g_strcmp0 (strings[exec_length - url_offset], app->url) != 0) {
     changed = TRUE;
-    g_free (strings[exec_length - 1]);
-    strings[exec_length - 1] = g_strdup (app->url);
+    g_free (strings[exec_length - url_offset]);
+    strings[exec_length - url_offset] = g_strdup (app->url);
     g_free (exec);
     exec = g_strjoinv (" ", strings);
     g_key_file_set_string (keyfile, "Desktop Entry", "Exec", exec);

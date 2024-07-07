@@ -113,7 +113,7 @@ gboolean                 ephy_shell_close_all_windows       (EphyShell        *s
 void                     ephy_shell_try_quit                (EphyShell        *shell);
 
 void                     ephy_shell_open_uris               (EphyShell        *shell,
-                                                             const char      **uris,
+                                                             GStrv             uris,
                                                              EphyStartupMode   startup_mode,
                                                              guint32           user_time);
 
@@ -124,7 +124,8 @@ EphyShellStartupContext *ephy_shell_startup_context_new     (EphyStartupMode    
                                                              char                    **arguments,
                                                              guint32                   user_time);
 
-void                     _ephy_shell_create_instance        (EphyEmbedShellMode mode);
+void                     _ephy_shell_create_instance        (EphyEmbedShellMode mode,
+                                                             EphyWebApplication *web_application);
 
 void                     ephy_shell_send_notification       (EphyShell        *shell,
                                                              gchar            *id,

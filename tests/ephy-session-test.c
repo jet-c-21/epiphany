@@ -304,7 +304,7 @@ open_uris_after_loading_session (const char **uris,
    * command - it should bail after noticing there are windows
    * already.
    */
-  ephy_shell_open_uris (ephy_shell_get_default (), uris, 0, user_time);
+  ephy_shell_open_uris (ephy_shell_get_default (), g_strdupv (uris), 0, user_time);
 
   while (gtk_events_pending ())
     gtk_main_iteration_do (FALSE);
@@ -355,7 +355,7 @@ main (int   argc,
     return -1;
   }
 
-  _ephy_shell_create_instance (EPHY_EMBED_SHELL_MODE_TEST);
+  _ephy_shell_create_instance (EPHY_EMBED_SHELL_MODE_TEST, NULL);
   g_assert_nonnull (ephy_shell_get_default ());
 
   g_application_register (G_APPLICATION (ephy_shell_get_default ()), NULL, NULL);

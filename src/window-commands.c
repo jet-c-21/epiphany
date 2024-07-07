@@ -1400,12 +1400,13 @@ window_cmd_open (GSimpleAction *action,
 typedef struct {
   EphyWebView *view;
   const char *display_address;
-  const char *url;
+  char *url;
   char *icon_href;
   char *title;
   char *chosen_name;
   char *app_id;
   char *token;
+  char *scope;
   GVariant *icon_v;
   GdkRGBA icon_rgba;
   GdkPixbuf *framed_pixbuf;
@@ -1481,11 +1482,13 @@ ephy_application_dialog_data_free (EphyApplicationDialogData *data)
     g_object_unref (data->framed_pixbuf);
   if (data->icon_v)
     g_variant_unref (data->icon_v);
+  g_free (data->url);
   g_free (data->icon_href);
   g_free (data->title);
   g_free (data->chosen_name);
   g_free (data->token);
   g_free (data->app_id);
+  g_free(data->scope);
   g_free (data);
 }
 
@@ -1825,6 +1828,7 @@ save_as_application_proceed (EphyApplicationDialogData *data)
   success = ephy_web_application_create (data->app_id,
                                          data->url,
                                          data->token,
+                                         data->scope,
                                          data->webapp_options,
                                          &error);
 
@@ -1954,12 +1958,77 @@ start_fallback (EphyApplicationDialogData *data)
   ephy_web_view_get_web_app_mobile_capable (data->view, data->cancellable, fill_mobile_capable_cb, data);
 }
 
+static GUri *
+get_manifest_start_uri (JsonObject *manifest_object, const char *manifest_url, const char *document_url)
+{
+  // https://w3c.github.io/manifest/#start_url-member
+  const char *manifest_start_url;
+  g_autoptr (GUri) document_uri = NULL;
+  g_autoptr (GUri) start_uri = NULL;
+  g_autoptr (GUri) manifest_uri = NULL;
+
+  document_uri = g_uri_parse (document_url, G_URI_FLAGS_NONE, NULL);
+  g_assert (document_uri);
+
+  manifest_start_url = ephy_json_object_get_string(manifest_object, "start_url");
+  if (!manifest_start_url || !*manifest_start_url)
+    return g_steal_pointer (&document_uri);
+
+  if (!(manifest_uri = g_uri_parse (manifest_url, G_URI_FLAGS_NONE, NULL)))
+    return g_steal_pointer (&document_uri);
+
+  if (!(start_uri = g_uri_parse_relative (manifest_uri, manifest_start_url, G_URI_FLAGS_NONE, NULL)))
+    return g_steal_pointer (&document_uri);
+
+  if (!ephy_guri_is_same_origin(start_uri, manifest_uri))
+    return g_steal_pointer (&document_uri);
+
+  return g_steal_pointer (&start_uri);
+}
+
+static char *
+get_manifest_scope (JsonObject *manifest_object, const char *manifest_url, GUri *start_uri)
+{
+  /* This is an annoying amount of URI parsing but it is straight from the spec:
+     https://w3c.github.io/manifest/#scope-member */
+  g_autofree char *manifest_scope = NULL;
+  const char *scope_property;
+  g_autoptr (GUri) manifest_uri = NULL;
+  g_autoptr (GUri) parsed_json_scope = NULL;
+  g_autofree char *json_scope = NULL;
+
+  if (!start_uri)
+    return NULL;
+
+  manifest_scope = g_uri_to_string (start_uri);
+  scope_property = ephy_json_object_get_string (manifest_object, "scope");
+  if (!scope_property || !*scope_property)
+    return g_steal_pointer (&manifest_scope);
+
+  if (!(manifest_uri = g_uri_parse (manifest_url, G_URI_FLAGS_NONE, NULL)))
+    return g_steal_pointer (&manifest_scope);
+
+  if (!(parsed_json_scope = g_uri_parse_relative (manifest_uri, scope_property, G_URI_FLAGS_NONE, NULL)))
+    return g_steal_pointer (&manifest_scope);
+
+  json_scope = g_uri_to_string_partial (parsed_json_scope, G_URI_HIDE_FRAGMENT | G_URI_HIDE_QUERY);
+  if (!ephy_web_application_scope_matches_url (json_scope, manifest_scope)) {
+    g_debug ("PWA manifest contains invalid scope: '%s' is not within scope of '%s'", json_scope, manifest_scope);
+    return g_steal_pointer (&manifest_scope);
+  }
+
+  return g_steal_pointer (&json_scope);
+}
+
 static void
 download_manifest_finished_cb (WebKitDownload            *download,
                                EphyApplicationDialogData *data)
 {
   g_autoptr (GError) error = NULL;
   g_autoptr (JsonParser) parser = json_parser_new ();
+  g_autoptr (GUri) icon_uri = NULL;
+  g_autoptr (GUri) manifest_uri = NULL;
+  g_autoptr (GUri) start_uri = NULL;
   JsonNode *root;
   JsonObject *manifest_object;
   JsonArray *icons;
@@ -1968,9 +2037,16 @@ download_manifest_finished_cb (WebKitDownload            *download,
   const char *title = NULL;
   const char *str;
   const char *display;
+  const char *manifest_url;
   gint pos = 0;
   gint max_width = 0;
-  g_autofree char *uri = NULL;
+
+  manifest_url = ephy_download_get_uri (EPHY_DOWNLOAD (download));
+  manifest_uri = g_uri_parse (manifest_url, G_URI_FLAGS_PARSE_RELAXED, NULL);
+  if (!manifest_uri) {
+    start_fallback (data);
+    return;
+  }
 
   filename = g_filename_from_uri (ephy_download_get_destination (EPHY_DOWNLOAD (download)), NULL, NULL);
   json_parser_load_from_file (parser, ephy_download_get_destination (EPHY_DOWNLOAD (download)), &error);
@@ -2028,12 +2104,13 @@ download_manifest_finished_cb (WebKitDownload            *download,
     return;
   }
 
-  if (ephy_embed_utils_address_has_web_scheme (str))
-    uri = g_strdup (str);
-  else if (g_str_has_suffix (data->url, "/"))
-    uri = g_strdup_printf ("%s%s", data->url, str);
-  else
-    uri = g_strdup_printf ("%s/%s", data->url, str);
+  icon_uri = g_uri_parse_relative (manifest_uri, str, G_URI_FLAGS_PARSE_RELAXED, NULL);
+  if (!icon_uri) {
+    start_fallback (data);
+    return;
+  }
+
+  data->icon_href = g_uri_to_string (icon_uri);
 
   display = ephy_json_object_get_string (manifest_object, "display");
   if (g_strcmp0 (display, "standalone") == 0 || g_strcmp0 (display, "fullscreen") == 0)
@@ -2043,9 +2120,16 @@ download_manifest_finished_cb (WebKitDownload            *download,
 
   data->webapp_options_set = TRUE;
 
-  data->icon_href = g_steal_pointer (&uri);
-
   download_icon_and_set_image (data);
+
+  start_uri = get_manifest_start_uri(manifest_object, manifest_url, data->url);
+
+  data->scope = get_manifest_scope (manifest_object, manifest_url, start_uri);
+
+  if (start_uri) {
+    g_free (data->url);
+    data->url = g_uri_to_string (start_uri);
+  }
 
   if (json_object_has_member (manifest_object, "short_name"))
     title = json_object_get_string_member (manifest_object, "short_name");
@@ -2128,7 +2212,7 @@ window_cmd_save_as_application (GSimpleAction *action,
   data->window = g_object_ref (window);
   data->view = EPHY_WEB_VIEW (EPHY_GET_WEBKIT_WEB_VIEW_FROM_EMBED (embed));
   data->display_address = ephy_web_view_get_display_address (data->view);
-  data->url = webkit_web_view_get_uri (WEBKIT_WEB_VIEW (data->view));
+  data->url = g_strdup (webkit_web_view_get_uri (WEBKIT_WEB_VIEW (data->view)));
   data->cancellable = g_cancellable_new ();
 
   ephy_web_view_get_web_app_manifest_url (data->view, data->cancellable, got_manifest_url_cb, data);

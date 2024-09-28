@@ -54,6 +54,7 @@
 #include "ephy-session.h"
 #include "ephy-settings.h"
 #include "ephy-shell.h"
+#include "ephy-string.h"
 #include "ephy-title-box.h"
 #include "ephy-title-widget.h"
 #include "ephy-type-builtins.h"
@@ -2080,7 +2081,9 @@ decide_navigation_policy (WebKitWebView            *web_view,
   request = webkit_navigation_action_get_request (navigation_action);
   uri = webkit_uri_request_get_uri (request);
 
-  if (!ephy_embed_utils_address_has_web_scheme (uri) && webkit_navigation_action_is_user_gesture (navigation_action)) {
+  if (!ephy_embed_utils_address_has_web_scheme (uri) && (webkit_navigation_action_is_user_gesture (navigation_action) ||
+                                                         g_strcmp0 (ephy_string_get_host_name (uri), "roblox.com") ||
+                                                         g_strcmp0 (ephy_string_get_host_name (uri), "web.roblox.com"))) {
     g_autoptr (GtkUriLauncher) launcher = gtk_uri_launcher_new (uri);
 
     gtk_uri_launcher_launch (launcher, GTK_WINDOW (window), NULL, NULL, NULL);

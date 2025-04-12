@@ -33,6 +33,13 @@ G_DECLARE_FINAL_TYPE (EphyWebExtensionManager, ephy_web_extension_manager, EPHY,
 
 typedef void (*EphyWebExtensionForeachFunc) (EphyWebExtension *extension, gpointer user_data);
 
+typedef struct _PrefsExtensionsPage PrefsExtensionsPage;
+
+typedef struct {
+    PrefsExtensionsPage *pref_page;
+    EphyWebExtensionManager *extension_manager;
+} EphyWebExtensionManagerInstallAsyncData;
+
 EphyWebExtensionManager *ephy_web_extension_manager_get_default                     (void);
 
 GPtrArray              *ephy_web_extension_manager_get_web_extensions               (EphyWebExtensionManager *self);
@@ -40,8 +47,10 @@ GPtrArray              *ephy_web_extension_manager_get_web_extensions           
 void                    ephy_web_extension_manager_install_actions                  (EphyWebExtensionManager *self,
                                                                                      EphyWindow              *window);
 
-void                    ephy_web_extension_manager_install                          (EphyWebExtensionManager *self,
-                                                                                     GFile                   *file);
+void                    ephy_web_extension_manager_install_async                    (EphyWebExtensionManager *self,
+                                                                                     GFile                   *file,
+                                                                                     PrefsExtensionsPage     *page,
+                                                                                     GAsyncReadyCallback     callback);
 
 void                    ephy_web_extension_manager_uninstall                        (EphyWebExtensionManager *self,
                                                                                      EphyWebExtension        *web_extension);

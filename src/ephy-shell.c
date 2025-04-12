@@ -1478,6 +1478,36 @@ open_uris_data_free (OpenURIsData *data)
   g_free (data);
 }
 
+static void
+on_extension_installation (GObject      *source_object,
+                           GAsyncResult *res,
+                           gpointer      user_data)
+{
+  EphyShell *shell = NULL;
+  EphyWindow *window = NULL;
+  GError *error = NULL;
+  GFile *extension_file = NULL;
+  g_task_propagate_boolean (G_TASK (res), &error);
+
+  shell = ephy_shell_get_default ();
+  window = EPHY_WINDOW (gtk_application_get_active_window (GTK_APPLICATION (shell)));
+  extension_file = G_FILE (source_object);
+
+  if (error) {
+    if (window) {
+      g_autofree char *error_message = g_strdup_printf (_("Failed to load extension %s: %s"),
+                                                        g_file_get_basename (extension_file), error->message);
+
+      AdwToast *toast = adw_toast_new (error_message);
+
+      adw_toast_set_priority (toast, ADW_TOAST_PRIORITY_HIGH);
+
+      ephy_window_display_toast (window, toast);
+    }
+    return;
+  }
+}
+
 static gboolean
 ephy_shell_open_uris_idle (OpenURIsData *data)
 {
@@ -1516,7 +1546,7 @@ ephy_shell_open_uris_idle (OpenURIsData *data)
 
   if (url_is_xpi) {
     g_autoptr (GFile) xpi_file = g_file_new_for_uri (url);
-    ephy_web_extension_manager_install (ephy_web_extension_manager_get_default (), xpi_file);
+    ephy_web_extension_manager_install_async (ephy_web_extension_manager_get_default (), xpi_file, NULL, on_extension_installation);
   } else if (url && url[0] != '\0') {
     ephy_web_view_load_url (ephy_embed_get_web_view (embed), url);
 

@@ -178,6 +178,8 @@ struct _EphyWindow {
   AdwToast *switch_toast;
   AdwToast *download_start_toast;
   GHashTable *active_permission_popovers;
+  gboolean control_l_pressed;
+  gboolean control_r_pressed;
 
   GList *pending_decisions;
   gulong filters_initialized_id;
@@ -3957,9 +3959,48 @@ scroll_cb (EphyWindow *self,
            double      dx,
            double      dy)
 {
-  gtk_revealer_set_reveal_child (GTK_REVEALER (self->action_bar_revealer), dy == -1);
+  if (self->control_l_pressed || self->control_r_pressed) {
+    GActionGroup *action_group;
+
+    action_group = ephy_window_get_action_group (self, "win");
+
+    if (dy == -1)
+      g_action_group_activate_action (action_group, "zoom-in", NULL);
+    else
+      g_action_group_activate_action (action_group, "zoom-out", NULL);
+  } else {
+    gtk_revealer_set_reveal_child (GTK_REVEALER (self->action_bar_revealer), dy == -1);
+  }
 
   return FALSE;
+}
+
+static gboolean
+key_pressed_cb (EphyWindow      *self,
+                guint            keyval,
+                guint            keycode,
+                GdkModifierType *state,
+                gpointer         user_data)
+{
+  if (keyval == GDK_KEY_Control_L)
+    self->control_l_pressed = TRUE;
+  else if (keyval == GDK_KEY_Control_R)
+    self->control_r_pressed = TRUE;
+
+  return FALSE;
+}
+
+static void
+key_released_cb (EphyWindow      *self,
+                 guint            keyval,
+                 guint            keycode,
+                 GdkModifierType *state,
+                 gpointer         user_data)
+{
+  if (keyval == GDK_KEY_Control_L)
+    self->control_l_pressed = FALSE;
+  else if (keyval == GDK_KEY_Control_R)
+    self->control_r_pressed = FALSE;
 }
 
 static void
@@ -3978,6 +4019,7 @@ ephy_window_constructed (GObject *object)
   EphyDownloadsManager *downloads_manager;
   g_autoptr (GtkBuilder) builder = NULL;
   GtkEventController *scroll_controller;
+  GtkEventController *key_controller;
 
 #if 0
   /* Disabled due to https://gitlab.gnome.org/GNOME/epiphany/-/issues/1915 */
@@ -4068,6 +4110,13 @@ ephy_window_constructed (GObject *object)
   gtk_event_controller_set_propagation_phase (scroll_controller, GTK_PHASE_CAPTURE);
   g_signal_connect_object (scroll_controller, "scroll", G_CALLBACK (scroll_cb), window, G_CONNECT_SWAPPED);
   gtk_widget_add_controller (GTK_WIDGET (window), scroll_controller);
+
+  key_controller = gtk_event_controller_key_new ();
+  window->control_l_pressed = window->control_r_pressed = FALSE;
+  gtk_event_controller_set_propagation_phase (key_controller, GTK_PHASE_CAPTURE);
+  g_signal_connect_object (key_controller, "key-pressed", G_CALLBACK (key_pressed_cb), window, G_CONNECT_SWAPPED);
+  g_signal_connect_object (key_controller, "key-released", G_CALLBACK (key_released_cb), window, G_CONNECT_SWAPPED);
+  gtk_widget_add_controller (GTK_WIDGET (window), key_controller);
 
   builder = gtk_builder_new_from_resource ("/org/gnome/epiphany/gtk/tab-overview-menu.ui");
 

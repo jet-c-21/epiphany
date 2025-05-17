@@ -2461,3 +2461,9 @@ ephy_loation_entry_update_mute_button (EphyLocationEntry *entry,
     gtk_widget_set_visible (entry->mute_button, FALSE);
   }
 }
+
+gboolean
+ephy_location_entry_has_focus (EphyLocationEntry *self)
+{
+  return gtk_widget_has_focus (GTK_WIDGET (self->text));
+}

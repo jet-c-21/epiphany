@@ -115,4 +115,7 @@ void              ephy_window_bookmark_removed_toast     (EphyWindow   *window,
 
 void              ephy_window_toggle_bookmarks           (EphyWindow *window);
 
+void              ephy_window_display_toast              (EphyWindow *self,
+                                                          AdwToast   *toast);
+
 G_END_DECLS

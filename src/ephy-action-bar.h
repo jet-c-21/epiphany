@@ -38,9 +38,6 @@ EphyActionBar      *ephy_action_bar_new                  (EphyWindow *window);
 EphyActionBarStart *ephy_action_bar_get_action_bar_start (EphyActionBar *action_bar);
 EphyActionBarEnd   *ephy_action_bar_get_action_bar_end   (EphyActionBar *action_bar);
 
-void              ephy_action_bar_set_bookmark_icon_state (EphyActionBar         *self,
-                                                           EphyBookmarkIconState  state);
-
 void               ephy_action_bar_set_zoom_level         (EphyActionBar *header_bar,
                                                            gdouble        zoom);
 

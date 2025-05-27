@@ -29,6 +29,7 @@
 #include "ephy-embed-container.h"
 #include "ephy-link.h"
 #include "ephy-shell.h"
+#include "window-commands.h"
 
 #include <adwaita.h>
 #include <glib/gi18n.h>
@@ -83,6 +84,15 @@ tag_detail_back (EphyBookmarksDialog *self)
   gtk_stack_set_visible_child_name (GTK_STACK (self->toplevel_stack), "default");
   gtk_editable_set_text (GTK_EDITABLE (self->search_entry), "");
   gtk_list_box_remove_all (GTK_LIST_BOX (self->tag_detail_list_box));
+}
+
+static void
+bookmark_page (EphyBookmarksDialog *self)
+{
+  EphyWindow *window = EPHY_WINDOW (gtk_widget_get_root (GTK_WIDGET (self)));
+  g_assert (EPHY_IS_BOOKMARKS_DIALOG (self));
+
+  window_cmd_bookmark_page (NULL, NULL, window);
 }
 
 static void
@@ -1291,6 +1301,8 @@ ephy_bookmarks_dialog_class_init (EphyBookmarksDialogClass *klass)
 
   gtk_widget_class_install_action (widget_class, "dialog.tag-detail-back", NULL,
                                    (GtkWidgetActionActivateFunc)tag_detail_back);
+  gtk_widget_class_install_action (widget_class, "dialog.bookmark-page", NULL,
+                                   (GtkWidgetActionActivateFunc)bookmark_page);
 }
 
 static void

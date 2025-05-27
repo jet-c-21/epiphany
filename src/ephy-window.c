@@ -1265,8 +1265,6 @@ ephy_window_sync_bookmark_state (EphyWindow            *window,
 {
   GtkWidget *lentry;
 
-  ephy_action_bar_set_bookmark_icon_state (EPHY_ACTION_BAR (window->action_bar), state);
-
   lentry = GTK_WIDGET (ephy_header_bar_get_title_widget (EPHY_HEADER_BAR (window->header_bar)));
 
   if (EPHY_IS_LOCATION_ENTRY (lentry))
@@ -1304,7 +1302,6 @@ sync_tab_bookmarked_status (EphyWebView *view,
                      : EPHY_BOOKMARK_ICON_EMPTY;
   }
 
-  ephy_action_bar_set_bookmark_icon_state (EPHY_ACTION_BAR (window->action_bar), state);
   ephy_location_entry_set_bookmark_icon_state (EPHY_LOCATION_ENTRY (widget), state);
 }
 

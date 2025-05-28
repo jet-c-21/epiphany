@@ -35,6 +35,7 @@
 #include "ephy-settings.h"
 #include "ephy-shell.h"
 #include "ephy-signal-accumulator.h"
+#include "ephy-site-menu-button.h"
 #include "ephy-suggestion.h"
 #include "ephy-title-widget.h"
 #include "ephy-uri-helpers.h"
@@ -62,11 +63,10 @@ struct _EphyLocationEntry {
 
   GtkWidget *text;
   GtkWidget *progress;
-  GtkWidget *security_button;
+  GtkWidget *site_menu_button;
   GtkWidget *mute_button;
   GtkWidget *clear_button;
   GtkWidget *password_button;
-  GtkWidget *bookmark_button;
   GtkWidget *reader_mode_button;
   GList *page_actions;
   GList *permission_buttons;
@@ -1005,12 +1005,6 @@ editable_changed_cb (GtkEditable       *editable,
 }
 
 static void
-security_button_clicked_cb (EphyLocationEntry *entry)
-{
-  g_signal_emit_by_name (entry, "lock-clicked", NULL);
-}
-
-static void
 reader_mode_clicked_cb (EphyLocationEntry *entry)
 {
   entry->reader_mode_active = !entry->reader_mode_active;
@@ -1265,8 +1259,8 @@ ephy_location_entry_measure (GtkWidget      *widget,
       }
     }
 
-    if (gtk_widget_should_layout (entry->security_button)) {
-      gtk_widget_measure (entry->security_button, orientation, for_size,
+    if (gtk_widget_should_layout (entry->site_menu_button)) {
+      gtk_widget_measure (entry->site_menu_button, orientation, for_size,
                           &child_min, &child_nat, NULL, NULL);
       min += child_min;
       nat += child_nat;
@@ -1281,13 +1275,6 @@ ephy_location_entry_measure (GtkWidget      *widget,
 
     if (gtk_widget_should_layout (entry->password_button)) {
       gtk_widget_measure (entry->password_button, orientation, for_size,
-                          &child_min, &child_nat, NULL, NULL);
-      min += child_min;
-      nat += child_nat;
-    }
-
-    if (gtk_widget_should_layout (entry->bookmark_button)) {
-      gtk_widget_measure (entry->bookmark_button, orientation, for_size,
                           &child_min, &child_nat, NULL, NULL);
       min += child_min;
       nat += child_nat;
@@ -1380,13 +1367,11 @@ ephy_location_entry_size_allocate (GtkWidget *widget,
     allocate_icon (widget, height, baseline, l->data,
                    GTK_PACK_START, &icon_left_pos, &icon_right_pos);
   }
-  allocate_icon (widget, height, baseline, entry->security_button,
+  allocate_icon (widget, height, baseline, entry->site_menu_button,
                  GTK_PACK_START, &icon_left_pos, &icon_right_pos);
   allocate_icon (widget, height, baseline, entry->mute_button,
                  GTK_PACK_END, &icon_left_pos, &icon_right_pos);
   allocate_icon (widget, height, baseline, entry->password_button,
-                 GTK_PACK_END, &icon_left_pos, &icon_right_pos);
-  allocate_icon (widget, height, baseline, entry->bookmark_button,
                  GTK_PACK_END, &icon_left_pos, &icon_right_pos);
   allocate_icon (widget, height, baseline, entry->reader_mode_button,
                  GTK_PACK_END, &icon_left_pos, &icon_right_pos);
@@ -1563,9 +1548,8 @@ ephy_location_entry_dispose (GObject *object)
   gtk_widget_unparent (entry->context_menu);
   gtk_widget_unparent (entry->text);
   gtk_widget_unparent (entry->progress);
-  gtk_widget_unparent (entry->security_button);
+  gtk_widget_unparent (entry->site_menu_button);
   gtk_widget_unparent (entry->password_button);
-  gtk_widget_unparent (entry->bookmark_button);
   gtk_widget_unparent (entry->reader_mode_button);
   gtk_widget_unparent (entry->mute_button);
   gtk_widget_unparent (entry->clear_button);
@@ -1600,17 +1584,6 @@ register_activate_shortcuts (GtkWidgetClass  *widget_class,
   gtk_widget_class_add_binding (widget_class, GDK_KEY_KP_Enter, modifiers,
                                 (GtkShortcutFunc)activate_shortcut_cb,
                                 "i", modifiers);
-}
-
-static void
-on_bookmark_button_clicked (GtkButton *button,
-                            gpointer   user_data)
-{
-  GtkWidget *window = GTK_WIDGET (gtk_widget_get_root (GTK_WIDGET (button)));
-  GtkWidget *dialog;
-
-  dialog = ephy_bookmark_properties_new_for_window (EPHY_WINDOW (window));
-  adw_dialog_present (ADW_DIALOG (dialog), window);
 }
 
 static void
@@ -1747,10 +1720,9 @@ ephy_location_entry_class_init (EphyLocationEntryClass *klass)
 
   gtk_widget_class_bind_template_child (widget_class, EphyLocationEntry, text);
   gtk_widget_class_bind_template_child (widget_class, EphyLocationEntry, progress);
-  gtk_widget_class_bind_template_child (widget_class, EphyLocationEntry, security_button);
+  gtk_widget_class_bind_template_child (widget_class, EphyLocationEntry, site_menu_button);
   gtk_widget_class_bind_template_child (widget_class, EphyLocationEntry, mute_button);
   gtk_widget_class_bind_template_child (widget_class, EphyLocationEntry, password_button);
-  gtk_widget_class_bind_template_child (widget_class, EphyLocationEntry, bookmark_button);
   gtk_widget_class_bind_template_child (widget_class, EphyLocationEntry, reader_mode_button);
   gtk_widget_class_bind_template_child (widget_class, EphyLocationEntry, clear_button);
   gtk_widget_class_bind_template_child (widget_class, EphyLocationEntry, suggestions_popover);
@@ -1766,7 +1738,6 @@ ephy_location_entry_class_init (EphyLocationEntryClass *klass)
   gtk_widget_class_bind_template_callback (widget_class, cut_clipboard_cb);
   gtk_widget_class_bind_template_callback (widget_class, copy_clipboard_cb);
   gtk_widget_class_bind_template_callback (widget_class, reader_mode_clicked_cb);
-  gtk_widget_class_bind_template_callback (widget_class, security_button_clicked_cb);
   gtk_widget_class_bind_template_callback (widget_class, suggestions_popover_notify_visible_cb);
   gtk_widget_class_bind_template_callback (widget_class, suggestion_activated_cb);
   gtk_widget_class_bind_template_callback (widget_class, update_suggestions_popover);
@@ -1825,14 +1796,6 @@ ephy_location_entry_init (EphyLocationEntry *entry)
   entry->select_all_selected = FALSE;
 
   gtk_widget_init_template (GTK_WIDGET (entry));
-
-  g_settings_bind (EPHY_SETTINGS_LOCKDOWN,
-                   EPHY_PREFS_LOCKDOWN_BOOKMARK_EDITING,
-                   entry->bookmark_button,
-                   "visible",
-                   G_SETTINGS_BIND_GET | G_SETTINGS_BIND_INVERT_BOOLEAN);
-
-  g_signal_connect (entry->bookmark_button, "clicked", G_CALLBACK (on_bookmark_button_clicked), entry);
 
   if (g_settings_get_boolean (EPHY_SETTINGS_WEB, EPHY_PREFS_WEB_ALWAYS_SHOW_FULL_URL))
     gtk_editable_set_alignment (GTK_EDITABLE (entry), 0.0);
@@ -1960,16 +1923,19 @@ ephy_location_entry_title_widget_set_security_level (EphyTitleWidget   *widget,
 
   g_assert (entry);
 
-  if (!entry->reader_mode_active)
-    icon_name = ephy_security_level_to_icon_name (security_level);
-
-  if (icon_name)
-    gtk_button_set_icon_name (GTK_BUTTON (entry->security_button),
-                              icon_name);
-
-  gtk_widget_set_visible (entry->security_button, !!icon_name);
-
   entry->security_level = security_level;
+
+  if (security_level == EPHY_SECURITY_LEVEL_NO_SECURITY ||
+      security_level == EPHY_SECURITY_LEVEL_NO_SECURITY ||
+      security_level == EPHY_SECURITY_LEVEL_NO_SECURITY) {
+    if (!entry->reader_mode_active)
+      icon_name = ephy_security_level_to_icon_name (security_level);
+  }
+
+  if (!icon_name)
+    icon_name = "ephy-site-button-symbolic";
+
+  ephy_site_menu_button_set_icon_name (EPHY_SITE_MENU_BUTTON (entry->site_menu_button), icon_name);
 }
 
 static void
@@ -2125,43 +2091,6 @@ ephy_location_entry_grab_focus (EphyLocationEntry *self)
   gtk_widget_grab_focus (self->text);
 }
 
-void
-ephy_location_entry_set_bookmark_icon_state (EphyLocationEntry     *self,
-                                             EphyBookmarkIconState  state)
-{
-  self->icon_state = state;
-
-  g_assert (EPHY_IS_LOCATION_ENTRY (self));
-
-  if (self->adaptive_mode == EPHY_ADAPTIVE_MODE_NARROW)
-    state = EPHY_BOOKMARK_ICON_HIDDEN;
-
-  switch (state) {
-    case EPHY_BOOKMARK_ICON_HIDDEN:
-      gtk_widget_set_visible (self->bookmark_button, FALSE);
-      gtk_widget_remove_css_class (self->bookmark_button, "starred");
-      break;
-    case EPHY_BOOKMARK_ICON_EMPTY:
-      gtk_widget_set_visible (self->bookmark_button, TRUE);
-      gtk_button_set_icon_name (GTK_BUTTON (self->bookmark_button),
-                                "ephy-non-starred-symbolic");
-      gtk_widget_remove_css_class (self->bookmark_button, "starred");
-      /* Translators: tooltip for the empty bookmark button */
-      gtk_widget_set_tooltip_text (self->bookmark_button, _("Bookmark Page"));
-      break;
-    case EPHY_BOOKMARK_ICON_BOOKMARKED:
-      gtk_widget_set_visible (self->bookmark_button, TRUE);
-      gtk_button_set_icon_name (GTK_BUTTON (self->bookmark_button),
-                                "ephy-starred-symbolic");
-      gtk_widget_add_css_class (self->bookmark_button, "starred");
-      /* Translators: tooltip for the bookmarked button */
-      gtk_widget_set_tooltip_text (self->bookmark_button, _("Edit Bookmark"));
-      break;
-    default:
-      g_assert_not_reached ();
-  }
-}
-
 /**
  * ephy_location_entry_set_lock_tooltip:
  * @entry: an #EphyLocationEntry widget
@@ -2174,7 +2103,7 @@ void
 ephy_location_entry_set_lock_tooltip (EphyLocationEntry *entry,
                                       const char        *tooltip)
 {
-  gtk_widget_set_tooltip_text (entry->security_button, tooltip);
+  gtk_widget_set_tooltip_text (entry->site_menu_button, tooltip);
 }
 
 void
@@ -2373,8 +2302,6 @@ ephy_location_entry_set_adaptive_mode (EphyLocationEntry *entry,
                                        EphyAdaptiveMode   adaptive_mode)
 {
   entry->adaptive_mode = adaptive_mode;
-
-  ephy_location_entry_set_bookmark_icon_state (entry, entry->icon_state);
 }
 
 void
@@ -2460,4 +2387,11 @@ ephy_loation_entry_update_mute_button (EphyLocationEntry *entry,
   } else {
     gtk_widget_set_visible (entry->mute_button, FALSE);
   }
+}
+
+void
+ephy_location_entry_set_zoom_level (EphyLocationEntry *entry,
+                                    char              *zoom_level)
+{
+  ephy_site_menu_button_set_zoom_level (EPHY_SITE_MENU_BUTTON (entry->site_menu_button), zoom_level);
 }

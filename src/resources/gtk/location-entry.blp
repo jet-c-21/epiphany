@@ -63,12 +63,9 @@ template $EphyLocationEntry: Widget {
     visible: false;
   }
 
-  Button security_button {
-    tooltip-text: _("Website Security Status and Permissions");
+  $EphySiteMenuButton site_menu_button {
     focus-on-click: false;
     valign: center;
-    clicked => $security_button_clicked_cb() swapped;
-
     styles [
       "entry-icon",
       "start",
@@ -81,16 +78,6 @@ template $EphyLocationEntry: Widget {
     valign: center;
     visible: false;
     icon-name: "ephy-audio-muted-symbolic";
-
-    styles [
-      "entry-icon",
-      "end",
-    ]
-  }
-
-  Button bookmark_button {
-    valign: center;
-    focus-on-click: false;
 
     styles [
       "entry-icon",

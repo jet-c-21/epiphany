@@ -13,6 +13,12 @@ template $EphyDataView: Adw.NavigationPage {
       }
 
       [end]
+      Button close_button {
+        icon-name: "view-sidebar-end-symbolic";
+        // clicked => $on_close_button_clicked();
+      }
+
+      [end]
       MenuButton options_menu_button {
         icon-name: "view-more-symbolic";
         tooltip-text: _("Options");

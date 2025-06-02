@@ -1,6 +1,5 @@
-/* -*- Mode: C; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /*
- *  Copyright © 2025 Jan-Michael Brummer
+ *  Copyright © 2025 Jan-Michael Brummer <jan.brummer@tabos.org>
  *
  *  This file is part of Epiphany.
  *
@@ -18,20 +17,33 @@
  *  along with Epiphany.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#pragma once
+#include "config.h"
 
-#include "ephy-window.h"
+#include "ephy-sidebar.h"
+#include "ephy-bookmarks-dialog.h"
 
-#include <adwaita.h>
+struct _EphySidebar {
+  AdwBin parent_instance;
+};
 
-G_BEGIN_DECLS
+G_DEFINE_FINAL_TYPE (EphySidebar, ephy_sidebar, ADW_TYPE_BIN)
 
-#define EPHY_TYPE_PASSWORDS_VIEW (ephy_passwords_view_get_type ())
+static void
+ephy_sidebar_class_init (EphySidebarClass *klass)
+{
+  GtkWidgetClass *widget_class = GTK_WIDGET_CLASS (klass);
 
-G_DECLARE_FINAL_TYPE (EphyPasswordsView, ephy_passwords_view, EPHY, PASSWORDS_VIEW, AdwBin)
+  gtk_widget_class_set_template_from_resource (widget_class, "/org/gnome/epiphany/gtk/sidebar.ui");
+}
 
-void
-ephy_passwords_show (EphyWindow *window);
+static void
+ephy_sidebar_init (EphySidebar *self)
+{
+  gtk_widget_init_template (GTK_WIDGET (self));
+}
 
-G_END_DECLS
-
+GtkWidget *
+ephy_sidebar_new (void)
+{
+  return g_object_new (EPHY_TYPE_SIDEBAR, NULL);
+}

@@ -1056,26 +1056,6 @@ window_cmd_export_passwords (GSimpleAction *action,
 G_GNUC_END_IGNORE_DEPRECATIONS
 
 void
-window_cmd_show_history (GSimpleAction *action,
-                         GVariant      *parameter,
-                         gpointer       user_data)
-{
-  EphyHistoryDialog *dialog;
-
-  user_data = EPHY_WINDOW (user_data);
-
-  dialog = EPHY_HISTORY_DIALOG (ephy_shell_get_history_dialog (ephy_shell_get_default ()));
-  if (ephy_history_dialog_get_parent_window (dialog) != user_data &&
-      ephy_history_dialog_get_parent_window (dialog) != NULL) {
-    adw_dialog_force_close (ADW_DIALOG (dialog));
-    dialog = EPHY_HISTORY_DIALOG (ephy_shell_get_history_dialog (ephy_shell_get_default ()));
-  }
-
-  adw_dialog_present (ADW_DIALOG (dialog), user_data);
-  ephy_history_dialog_set_parent_window (dialog, user_data);
-}
-
-void
 window_cmd_show_firefox_sync (GSimpleAction *action,
                               GVariant      *parameter,
                               gpointer       user_data)

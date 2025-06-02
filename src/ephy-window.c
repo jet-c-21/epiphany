@@ -54,6 +54,7 @@
 #include "ephy-session.h"
 #include "ephy-settings.h"
 #include "ephy-shell.h"
+#include "ephy-sidebar.h"
 #include "ephy-title-box.h"
 #include "ephy-title-widget.h"
 #include "ephy-type-builtins.h"
@@ -161,7 +162,7 @@ struct _EphyWindow {
   GtkWidget *action_bar;
   GtkWidget *overlay_split_view;
   GtkWidget *bottom_sheet;
-  GtkWidget *bookmarks_dialog;
+  GtkWidget *sidebar;
   EphyEmbed *active_embed;
   EphyWindowChrome chrome;
   WebKitHitTestResult *context_event;
@@ -4437,7 +4438,7 @@ ephy_window_constructed (GObject *object)
                               GTK_WIDGET (window->fullscreen_box));
 
   ephy_shell_get_bookmarks_manager (ephy_shell_get_default ());
-  window->bookmarks_dialog = ephy_bookmarks_dialog_new ();
+  window->sidebar = ephy_sidebar_new ();
 
   /* Overlay Split View */
   window->overlay_split_view = adw_overlay_split_view_new ();
@@ -4449,7 +4450,7 @@ ephy_window_constructed (GObject *object)
   adw_overlay_split_view_set_sidebar_position (ADW_OVERLAY_SPLIT_VIEW (window->overlay_split_view), GTK_PACK_END);
 
   adw_overlay_split_view_set_content (ADW_OVERLAY_SPLIT_VIEW (window->overlay_split_view), GTK_WIDGET (window->overview));
-  adw_overlay_split_view_set_sidebar (ADW_OVERLAY_SPLIT_VIEW (window->overlay_split_view), window->bookmarks_dialog);
+  adw_overlay_split_view_set_sidebar (ADW_OVERLAY_SPLIT_VIEW (window->overlay_split_view), window->sidebar);
   g_signal_connect_object (window->overlay_split_view, "notify::show-sidebar",
                            G_CALLBACK (show_sidebar_cb), window, G_CONNECT_SWAPPED);
 
@@ -5233,10 +5234,10 @@ ephy_window_toggle_bookmarks (EphyWindow *self)
   adw_overlay_split_view_set_show_sidebar (ADW_OVERLAY_SPLIT_VIEW (self->overlay_split_view), state);
 
   if (state) {
-    ephy_bookmarks_dialog_set_is_editing (EPHY_BOOKMARKS_DIALOG (self->bookmarks_dialog), FALSE);
-    ephy_bookmarks_dialog_focus (EPHY_BOOKMARKS_DIALOG (self->bookmarks_dialog));
+    /* ephy_bookmarks_dialog_set_is_editing (EPHY_BOOKMARKS_DIALOG (self->bookmarks_dialog), FALSE); */
+    /* ephy_bookmarks_dialog_focus (EPHY_BOOKMARKS_DIALOG (self->bookmarks_dialog)); */
   } else {
-    ephy_bookmarks_dialog_clear_search (EPHY_BOOKMARKS_DIALOG (self->bookmarks_dialog));
+    /* ephy_bookmarks_dialog_clear_search (EPHY_BOOKMARKS_DIALOG (self->bookmarks_dialog)); */
   }
 }
 

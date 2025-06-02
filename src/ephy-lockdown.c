@@ -88,7 +88,6 @@ static const BindAction app_actions[] = {
 };
 
 static const BindAction app_mode_app_actions[] = {
-  { EPHY_PREFS_LOCKDOWN_HISTORY, "history", "enabled" }
 };
 
 static const BindAction window_actions[] = {

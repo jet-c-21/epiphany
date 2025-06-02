@@ -130,6 +130,7 @@ struct _EphyWebView {
   guint unresponsive_process_timeout_id;
 
   guint64 uid;
+  gint num_redirects;
 
   EphyClientCertificateManager *client_certificate_manager;
 
@@ -1457,6 +1458,10 @@ load_changed_cb (WebKitWebView   *web_view,
    * previously-loaded page until WEBKIT_LOAD_COMMITTED! During
    * WEBKIT_LOAD_STARTED, it may or may not match the URI being loaded.
    */
+
+  if (load_event != WEBKIT_LOAD_REDIRECTED)
+    view->num_redirects = 0;
+
   switch (load_event) {
     case WEBKIT_LOAD_STARTED: {
       view->load_failed = FALSE;
@@ -1478,6 +1483,7 @@ load_changed_cb (WebKitWebView   *web_view,
       break;
     }
     case WEBKIT_LOAD_REDIRECTED:
+      view->num_redirects++;
       break;
     case WEBKIT_LOAD_COMMITTED: {
       const char *uri;
@@ -1741,6 +1747,62 @@ format_network_error_page (EphyWebView  *view,
   second_paragraph = _("It may be temporarily inaccessible or moved to a new "
                        "address. You may wish to verify that your internet "
                        "connection is working correctly.");
+  *message_body = g_strdup_printf ("<p>%s</p><p>%s</p>",
+                                   first_paragraph,
+                                   second_paragraph);
+
+  formatted_reason = g_strdup_printf ("<i>%s</i>", reason);
+  g_free (first_paragraph);
+  /* Technical details when a site cannot be loaded due to a network error. */
+  first_paragraph = g_strdup_printf (_("The precise error was: %s"),
+                                     formatted_reason);
+  *message_details = g_strdup_printf ("<p>%s</p>", first_paragraph);
+
+  /* The button on the network error page. DO NOT ADD MNEMONICS HERE. */
+  *button_label = g_strdup (_("Reload"));
+  *button_action = g_strdup_printf ("window.webkit.messageHandlers.reloadPage.postMessage(%" G_GUINT64_FORMAT ");",
+                                    webkit_web_view_get_page_id (WEBKIT_WEB_VIEW (view)));
+  /* Mnemonic for the Reload button on browser error pages. */
+  *button_accesskey = C_("reload-access-key", "R");
+
+  *icon_name = "network-error-symbolic.svg";
+  *style = "default";
+}
+
+static void
+format_redirect_error_page (EphyWebView  *view,
+                            const char   *uri,
+                            const char   *origin,
+                            const char   *reason,
+                            char        **page_title,
+                            char        **message_title,
+                            char        **message_body,
+                            char        **message_details,
+                            char        **button_label,
+                            char        **button_action,
+                            const char  **button_accesskey,
+                            const char  **icon_name,
+                            const char  **style)
+{
+  g_autofree char *encoded_origin = NULL;
+  g_autofree char *formatted_origin = NULL;
+  g_autofree char *formatted_reason = NULL;
+  g_autofree char *first_paragraph = NULL;
+  const char *second_paragraph;
+
+  /* Page title when a site cannot be loaded due to a network error. */
+  *page_title = g_strdup_printf (_("Redirection Error"));
+
+  /* Message title when a site cannot be loaded due to a network error. */
+  *message_title = g_strdup (_("Unable to display this website"));
+
+  encoded_origin = ephy_encode_for_html_entity (origin);
+  formatted_origin = g_strdup_printf ("<strong>%s</strong>", encoded_origin);
+  /* Error details when a site cannot be loaded due to a network error. */
+  first_paragraph = g_strdup_printf (_("The site at %s redirects the request so that it never ends."),
+                                     formatted_origin);
+  /* Further error details when a site cannot be loaded due to a network error. */
+  second_paragraph = _("This could sometimes happens when cookies are disabled or rejected.");
   *message_body = g_strdup_printf ("<p>%s</p><p>%s</p>",
                                    first_paragraph,
                                    second_paragraph);
@@ -2045,6 +2107,21 @@ ephy_web_view_load_error_page (EphyWebView          *view,
   html_file = g_resources_lookup_data (EPHY_PAGE_TEMPLATE_ERROR, 0, NULL);
 
   switch (page) {
+    case EPHY_WEB_VIEW_ERROR_PAGE_REDIRECT_ERROR:
+      format_redirect_error_page (view,
+                                  uri,
+                                  origin,
+                                  reason,
+                                  &page_title,
+                                  &msg_title,
+                                  &msg_body,
+                                  &msg_details,
+                                  &button_label,
+                                  &button_action,
+                                  &button_accesskey,
+                                  &icon_name,
+                                  &style);
+      break;
     case EPHY_WEB_VIEW_ERROR_PAGE_NETWORK_ERROR:
       format_network_error_page (view,
                                  uri,
@@ -2178,8 +2255,11 @@ load_failed_cb (WebKitWebView   *web_view,
       error->domain != WEBKIT_POLICY_ERROR) {
     if (view->address && g_str_has_prefix (view->address, "file:"))
       ephy_web_view_load_error_page (view, uri, EPHY_WEB_VIEW_ERROR_NO_SUCH_FILE, error, NULL);
+    else if (view->num_redirects != 0)
+      ephy_web_view_load_error_page (view, uri, EPHY_WEB_VIEW_ERROR_PAGE_REDIRECT_ERROR, error, NULL);
     else
       ephy_web_view_load_error_page (view, uri, EPHY_WEB_VIEW_ERROR_PAGE_NETWORK_ERROR, error, NULL);
+
     return TRUE;
   }
 

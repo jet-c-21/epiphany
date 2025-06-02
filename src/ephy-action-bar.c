@@ -43,7 +43,6 @@ struct _EphyActionBar {
 
   EphyWindow *window;
   GtkWidget *toolbar;
-  GtkWidget *bookmark_button;
   GtkWidget *menu_button;
   AdwTabButton *tab_button;
   GtkWidget *navigation_back;
@@ -505,7 +504,6 @@ ephy_action_bar_class_init (EphyActionBarClass *klass)
                                                "/org/gnome/epiphany/gtk/action-bar.ui");
 
   gtk_widget_class_bind_template_child (widget_class, EphyActionBar, tab_button);
-  gtk_widget_class_bind_template_child (widget_class, EphyActionBar, bookmark_button);
   gtk_widget_class_bind_template_child (widget_class, EphyActionBar, navigation_back);
   gtk_widget_class_bind_template_child (widget_class, EphyActionBar, navigation_forward);
   gtk_widget_class_bind_template_child (widget_class, EphyActionBar, menu_button);
@@ -540,36 +538,6 @@ ephy_action_bar_new (EphyWindow *window)
   return g_object_new (EPHY_TYPE_ACTION_BAR,
                        "window", window,
                        NULL);
-}
-
-void
-ephy_action_bar_set_bookmark_icon_state (EphyActionBar         *self,
-                                         EphyBookmarkIconState  state)
-{
-  g_assert (EPHY_IS_ACTION_BAR (self));
-
-  switch (state) {
-    case EPHY_BOOKMARK_ICON_HIDDEN:
-      gtk_widget_set_visible (self->bookmark_button, FALSE);
-      break;
-    case EPHY_BOOKMARK_ICON_EMPTY:
-      gtk_widget_set_visible (self->bookmark_button, TRUE);
-      gtk_button_set_icon_name (GTK_BUTTON (self->bookmark_button),
-                                "ephy-non-starred-symbolic");
-      /* Translators: tooltip for the empty bookmark button */
-      gtk_widget_set_tooltip_text (self->bookmark_button, _("Bookmark Page"));
-      break;
-    case EPHY_BOOKMARK_ICON_BOOKMARKED:
-      gtk_widget_set_visible (self->bookmark_button, TRUE);
-      gtk_button_set_icon_name (GTK_BUTTON (self->bookmark_button),
-                                "ephy-starred-symbolic");
-
-      /* Translators: tooltip for the bookmarked button */
-      gtk_widget_set_tooltip_text (self->bookmark_button, _("Edit Bookmark"));
-      break;
-    default:
-      g_assert_not_reached ();
-  }
 }
 
 void

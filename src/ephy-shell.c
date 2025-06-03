@@ -453,6 +453,7 @@ static GActionEntry app_entries[] = {
   { "webextension-notification", webextension_action, "(ssi)", NULL, NULL },
   { "webextension-context-menu", webextension_context_menu_action, "(sss)", NULL, NULL },
   { "close-all-tabs", close_all_tabs, NULL, NULL, NULL },
+  { "desktop-version", NULL, NULL, "true", NULL},
 };
 
 static GActionEntry non_incognito_extra_app_entries[] = {
@@ -572,6 +573,41 @@ run_in_background_set_mapping (const GValue       *value,
 }
 
 static void
+on_desktop_version_toggle (GSimpleAction *action,
+                           GVariant      *parameter,
+                           gpointer       user_data)
+{
+  EphyShell *shell = EPHY_SHELL (user_data);
+  EphyWindow *window;
+  EphyEmbed *embed;
+  g_autoptr (GVariant) state = NULL;
+  gboolean use_desktop;
+
+  state = g_action_get_state (G_ACTION (action));
+  use_desktop = g_variant_get_boolean (state);
+
+  g_simple_action_set_state (action, g_variant_new_boolean (!use_desktop));
+
+  window = EPHY_WINDOW (gtk_application_get_active_window (GTK_APPLICATION (shell)));
+  embed = ephy_embed_container_get_active_child (EPHY_EMBED_CONTAINER (window));
+  if (embed) {
+    EphyWebView *web_view = ephy_embed_get_web_view (embed);
+    WebKitSettings *settings;
+
+    settings = webkit_web_view_get_settings (WEBKIT_WEB_VIEW (web_view));
+
+    g_print ("Current UA: %s\n", webkit_settings_get_user_agent (settings));
+
+    if (!use_desktop)
+      webkit_settings_set_user_agent (settings, "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/60.5 Safari/605.1.15");
+    else
+      webkit_settings_set_user_agent (settings, "Mozilla/5.0 (Linux; Android) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/60.5 Safari/605.1.15 Mobile");
+
+    webkit_web_view_reload (WEBKIT_WEB_VIEW (web_view));
+  }
+}
+
+static void
 ephy_shell_startup (GApplication *application)
 {
   EphyEmbedShell *embed_shell = EPHY_EMBED_SHELL (application);
@@ -625,6 +661,10 @@ ephy_shell_startup (GApplication *application)
     g_action_map_add_action_entries (G_ACTION_MAP (application),
                                      app_entries, G_N_ELEMENTS (app_entries),
                                      application);
+
+    action = g_action_map_lookup_action (G_ACTION_MAP (application), "desktop-version");
+    g_signal_connect (action, "activate", G_CALLBACK (on_desktop_version_toggle), shell);
+
 
     if (mode != EPHY_EMBED_SHELL_MODE_INCOGNITO &&
         mode != EPHY_EMBED_SHELL_MODE_AUTOMATION) {

@@ -22,6 +22,11 @@
 			<summary>Default search engine.</summary>
 			<description>Name of the search engine selected by default.</description>
 		</key>
+		<key type="s" name="incognito-search-engine">
+			<default>'DuckDuckGo'</default>
+			<summary>Incognito search engine.</summary>
+			<description>Name of the search engine selected in incognito mode.</description>
+		</key>
 		<!-- As much as it can be annoying, there is just no way of migrating from a GVariant type to
 			an other one while keeping the previous key name, as GSettings enforces the new
 			key type way too much. It detects the previous value isn't an aa{sv} and instead

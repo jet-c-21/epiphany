@@ -113,7 +113,7 @@ sync_chromes_visibility (EphyHeaderBar *header_bar)
                           chrome & EPHY_WINDOW_CHROME_HEADER_BAR);
   ephy_action_bar_end_set_show_bookmarks_button (header_bar->action_bar_end,
                                                  chrome & EPHY_WINDOW_CHROME_BOOKMARKS);
-  gtk_widget_set_visible (header_bar->page_menu_button, chrome & EPHY_WINDOW_CHROME_MENU);
+  /* gtk_widget_set_visible (header_bar->page_menu_button, chrome & EPHY_WINDOW_CHROME_MENU); */
 }
 
 static void
@@ -210,10 +210,10 @@ ephy_header_bar_constructed (GObject *object)
                            GTK_WIDGET (header_bar->restore_button));
 
   /* Page Menu */
-  header_bar->page_menu_button = GTK_WIDGET (ephy_page_menu_button_new ());
-  ephy_page_menu_button_show_combined_stop_reload_button (EPHY_PAGE_MENU_BUTTON (header_bar->page_menu_button), FALSE);
+  /* header_bar->page_menu_button = GTK_WIDGET (ephy_page_menu_button_new ()); */
+  /* ephy_page_menu_button_show_combined_stop_reload_button (EPHY_PAGE_MENU_BUTTON (header_bar->page_menu_button), FALSE); */
 
-  adw_header_bar_pack_end (ADW_HEADER_BAR (header_bar->header_bar), header_bar->page_menu_button);
+  /* adw_header_bar_pack_end (ADW_HEADER_BAR (header_bar->header_bar), header_bar->page_menu_button); */
 
   /* End action elements */
   header_bar->action_bar_end = ephy_action_bar_end_new ();
@@ -319,14 +319,14 @@ ephy_header_bar_set_adaptive_mode (EphyHeaderBar    *header_bar,
     case EPHY_ADAPTIVE_MODE_NORMAL:
       gtk_widget_set_visible (GTK_WIDGET (header_bar->action_bar_start), TRUE);
       gtk_widget_set_visible (GTK_WIDGET (header_bar->action_bar_end), TRUE);
-      gtk_widget_set_visible (header_bar->page_menu_button, TRUE);
+      /* gtk_widget_set_visible (header_bar->page_menu_button, TRUE); */
       adw_header_bar_set_show_end_title_buttons (ADW_HEADER_BAR (header_bar->header_bar), TRUE);
 
       break;
     case EPHY_ADAPTIVE_MODE_NARROW:
       gtk_widget_set_visible (GTK_WIDGET (header_bar->action_bar_start), FALSE);
       gtk_widget_set_visible (GTK_WIDGET (header_bar->action_bar_end), FALSE);
-      gtk_widget_set_visible (header_bar->page_menu_button, FALSE);
+      /* gtk_widget_set_visible (header_bar->page_menu_button, FALSE); */
       adw_header_bar_set_show_end_title_buttons (ADW_HEADER_BAR (header_bar->header_bar), FALSE);
 
       break;

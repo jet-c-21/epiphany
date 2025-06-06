@@ -1,0 +1,140 @@
+using Gtk 4.0;
+using Adw 1;
+
+template $EphyWindow: Adw.ApplicationWindow {
+  default-width: 360;
+  default-height: 200;
+
+  notify::fullscreened => $notify_fullscreen_cb();
+
+  Adw.OverlaySplitView overlay_split_view {
+    max-sidebar-width: 360;
+    collapsed: true;
+    show-sidebar: false;
+    sidebar-position: end;
+
+    notify::show-sidebar => $show_sidebar_cb() swapped;
+
+    [content]
+    Adw.TabOverview overview {
+      enable-new-tab: true;
+      secondary-menu: overview-menu;
+      notify::open => $notify_overview_open_cb();
+      create-tab => $create_tab_cb();
+
+      Adw.MultiLayoutView {
+        Adw.Layout {
+          name: "wide";
+
+          $EphyFullscreenBox fullscreen_box {
+            content: Adw.ToastOverlay toast_overlay {
+              $EphyTabView tab_view {
+                vexpand: true;
+              }
+            };
+
+            top-bar: Box {
+              orientation: vertical;
+
+              $EphyHeaderBar header_bar {
+              }
+
+              Adw.TabBar tab_bar {
+              }
+            };
+
+            bottom-bar: Box {
+              orientation: vertical;
+
+              Revealer action_bar_revealer {
+                reveal-child: true;
+
+                $EphyActionBar action_bar {
+                }
+              }
+            };
+          }
+        }
+        Adw.Layout {
+          name: "narrow";
+
+          $EphyFullscreenBox fullscreen_box {
+            content: Adw.ToastOverlay toast_overlay {
+              $EphyTabView tab_view {
+                vexpand: true;
+              }
+            };
+
+            top-bar: Box {
+              orientation: vertical;
+
+              $EphyHeaderBar header_bar {
+              }
+
+              Adw.TabBar tab_bar {
+              }
+            };
+
+            bottom-bar: Box {
+              orientation: vertical;
+
+              Revealer action_bar_revealer {
+                reveal-child: true;
+
+                $EphyActionBar action_bar {
+                }
+              }
+            };
+          }
+        }
+      }
+    }
+
+    [sidebar]
+    $EphyBookmarksDialog bookmarks_dialog {
+    }
+   }
+
+  Adw.Breakpoint {
+    condition ("max-width: 600px")
+    apply => $on_breakpoint_apply();
+    unapply => $on_breakpoint_unapply();
+  }
+
+  EventControllerScroll {
+    flags: discrete | vertical;
+    propagation-phase: capture;
+    scroll => $scroll_cb() swapped;
+  }
+
+  GesturePan {
+    propagation-phase: capture;
+    pan => $pan_cb() swapped;
+  }
+}
+
+menu overview-menu {
+  section {
+    item {
+      label: _("_New Window");
+      action: "app.new-window";
+    }
+
+    item {
+      label: _("New _Incognito Window");
+      action: "app.new-incognito";
+    }
+  }
+
+  section {
+    item {
+      label: _("Reopen Closed _Tab");
+      action: "app.reopen-closed-tab";
+    }
+
+    item {
+      label: _("Close _All Tabs");
+      action: "app.close-all-tabs";
+    }
+  }
+}

@@ -1,26 +1,44 @@
 using Gtk 4.0;
 using Adw 1;
 
-template $EphyHistoryDialog: Adw.Dialog {
-  content-width: 640;
-  content-height: 580;
-  title: _("History");
-
+template $EphyHistoryDialog: Adw.Bin  {
   Adw.ToolbarView {
     [top]
     Stack header_bars_stack {
       transition-type: crossfade;
 
       Adw.HeaderBar window_header_bar {
-        [start]
-        Button clear_button {
-          Adw.ButtonContent {
-            label: _("_Clear");
-            use-underline: true;
-            icon-name: "user-trash-symbolic";
-          }
+        show-title: false;
 
-          clicked => $on_clear_button_clicked();
+        [start]
+        ToggleButton search_button {
+          icon-name: "edit-find-symbolic";
+          tooltip-text: _("Search");
+          active: bind search_bar.search-mode-enabled bidirectional;
+        }
+
+        // [start]
+        // Button clear_button {
+        //   Adw.ButtonContent {
+        //     label: _("_Clear");
+        //     use-underline: true;
+        //     icon-name: "user-trash-symbolic";
+        //   }
+
+        //   clicked => $on_clear_button_clicked();
+        // }
+
+        [end]
+        Button close_button {
+          icon-name: "view-sidebar-end-symbolic";
+          // clicked => $on_close_button_clicked();
+        }
+
+        [end]
+        MenuButton options_menu_button {
+          icon-name: "view-more-symbolic";
+          tooltip-text: _("Options");
+          menu-model: options_menu;
         }
 
         [end]
@@ -30,17 +48,10 @@ template $EphyHistoryDialog: Adw.Dialog {
           tooltip-text: _("Select Items");
           clicked => $on_selection_button_clicked();
         }
-
-        [end]
-        ToggleButton search_button {
-          icon-name: "edit-find-symbolic";
-          tooltip-text: _("Search");
-          active: bind search_bar.search-mode-enabled bidirectional;
-        }
       }
 
       Adw.HeaderBar selection_header_bar {
-        show-end-title-buttons: false;
+        show-title: false;
 
         [start]
         Button select_all_button {
@@ -167,3 +178,11 @@ template $EphyHistoryDialog: Adw.Dialog {
   }
 }
 
+menu options_menu {
+  section {
+    item {
+      label: _("_Clear");
+      action: "app.clear";
+    }
+  }
+}

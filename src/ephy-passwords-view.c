@@ -25,7 +25,7 @@
 #include "preferences/ephy-data-view.h"
 
 struct _EphyPasswordsView {
-  AdwDialog parent_instance;
+  AdwBin parent_instance;
 
   GtkWidget *remember_switch;
 
@@ -41,7 +41,7 @@ struct _EphyPasswordsView {
   GMenu *options_menu;
 };
 
-G_DEFINE_FINAL_TYPE (EphyPasswordsView, ephy_passwords_view, ADW_TYPE_DIALOG)
+G_DEFINE_FINAL_TYPE (EphyPasswordsView, ephy_passwords_view, ADW_TYPE_BIN)
 
 static void populate_model (EphyPasswordsView *passwords_view);
 

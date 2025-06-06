@@ -1,6 +1,5 @@
-/* -*- Mode: C; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /*
- *  Copyright © 2003 Marco Pesenti Gritti <mpeseng@tin.it>
+ *  Copyright © 2025 Jan-Michael Brummer <jan.brummer@tabos.org>
  *
  *  This file is part of Epiphany.
  *
@@ -18,23 +17,17 @@
  *  along with Epiphany.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+
 #pragma once
 
 #include <adwaita.h>
 
-#include "ephy-history-service.h"
-#include "ephy-window.h"
-
 G_BEGIN_DECLS
 
-#define EPHY_TYPE_HISTORY_DIALOG (ephy_history_dialog_get_type ())
+#define EPHY_TYPE_SIDEBAR (ephy_sidebar_get_type())
 
-G_DECLARE_FINAL_TYPE (EphyHistoryDialog, ephy_history_dialog, EPHY, HISTORY_DIALOG, AdwBin)
+G_DECLARE_FINAL_TYPE (EphySidebar, ephy_sidebar, EPHY, SIDEBAR, AdwBin)
 
-EphyWindow     *ephy_history_dialog_get_parent_window (EphyHistoryDialog  *self);
-void            ephy_history_dialog_set_parent_window (EphyHistoryDialog  *self,
-                                                       EphyWindow         *window);
-
-GtkWidget      *ephy_history_dialog_new               (void);
+GtkWidget *ephy_sidebar_new (void);
 
 G_END_DECLS

@@ -233,10 +233,10 @@ ephy_time_helpers_utf_friendly_time (time_t date)
       then.tm_year == now.tm_year) {
     if (!use_24) {
       /* Translators: "friendly time" string for the current day, strftime format. like "Today 12∶34 am" */
-      format = _("Today %I∶%M %p");
+      format = _("%I∶%M %p");
     } else {
       /* Translators: "friendly time" string for the current day, strftime format. like "Today 15∶34" */
-      format = _("Today %H∶%M");
+      format = _("%H∶%M");
     }
     done = TRUE;
   }
@@ -251,12 +251,12 @@ ephy_time_helpers_utf_friendly_time (time_t date)
         /* Translators: "friendly time" string for the previous day,
          * strftime format. e.g. "Yesterday 12∶34 am"
          */
-        format = _("Yesterday %I∶%M %p");
+        format = _("Yesterday");
       } else {
         /* Translators: "friendly time" string for the previous day,
          * strftime format. e.g. "Yesterday 15∶34"
          */
-        format = _("Yesterday %H∶%M");
+        format = _("Yesterday");
       }
       done = TRUE;
     }
@@ -274,12 +274,12 @@ ephy_time_helpers_utf_friendly_time (time_t date)
           /* Translators: "friendly time" string for a day in the current week,
            * strftime format. e.g. "Wed 12∶34 am"
            */
-          format = _("%a %I∶%M %p");
+          format = _("%a");
         } else {
           /* Translators: "friendly time" string for a day in the current week,
            * strftime format. e.g. "Wed 15∶34"
            */
-          format = _("%a %H∶%M");
+          format = _("%a");
         }
         done = TRUE;
         break;
@@ -293,12 +293,12 @@ ephy_time_helpers_utf_friendly_time (time_t date)
         /* Translators: "friendly time" string for a day in the current year,
          * strftime format. e.g. "Feb 12 12∶34 am"
          */
-        format = _("%b %d %I∶%M %p");
+        format = _("%b %d");
       } else {
         /* Translators: "friendly time" string for a day in the current year,
          * strftime format. e.g. "Feb 12 15∶34"
          */
-        format = _("%b %d %H∶%M");
+        format = _("%b %d");
       }
     } else {
       /* Translators: "friendly time" string for a day in a different year,

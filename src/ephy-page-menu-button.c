@@ -24,9 +24,6 @@
 #include "ephy-embed-shell.h"
 #include "ephy-flatpak-utils.h"
 
-/* Translators: tooltip for the refresh button */
-static const char *REFRESH_BUTTON_TOOLTIP = N_("Reload the current page");
-
 struct _EphyPageMenuButton {
   AdwBin parent_instance;
 
@@ -163,7 +160,7 @@ void
 ephy_page_menu_button_set_zoom_level (EphyPageMenuButton *self,
                                       char               *zoom_level)
 {
-  gtk_label_set_text (GTK_LABEL (self->zoom_level), zoom_level);
+  /* gtk_label_set_text (GTK_LABEL (self->zoom_level), zoom_level); */
 }
 
 void
@@ -171,16 +168,16 @@ ephy_page_menu_button_change_combined_stop_reload_state (EphyPageMenuButton *sel
                                                          gboolean            loading)
 {
   if (loading) {
-    gtk_button_set_icon_name (GTK_BUTTON (self->combined_stop_reload_button),
-                              "process-stop-symbolic");
+    /* gtk_button_set_icon_name (GTK_BUTTON (self->combined_stop_reload_button), */
+    /*                           "process-stop-symbolic"); */
     /* Translators: tooltip for the stop button */
-    gtk_widget_set_tooltip_text (self->combined_stop_reload_button,
-                                 _("Stop loading the current page"));
+    /* gtk_widget_set_tooltip_text (self->combined_stop_reload_button, */
+    /*                              _("Stop loading the current page")); */
   } else {
-    gtk_button_set_icon_name (GTK_BUTTON (self->combined_stop_reload_button),
-                              "view-refresh-symbolic");
-    gtk_widget_set_tooltip_text (self->combined_stop_reload_button,
-                                 _(REFRESH_BUTTON_TOOLTIP));
+    /* gtk_button_set_icon_name (GTK_BUTTON (self->combined_stop_reload_button), */
+    /* "view-refresh-symbolic"); */
+    /* gtk_widget_set_tooltip_text (self->combined_stop_reload_button, */
+    /*                              _(REFRESH_BUTTON_TOOLTIP)); */
   }
 }
 

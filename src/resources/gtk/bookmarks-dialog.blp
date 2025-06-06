@@ -3,26 +3,31 @@ using Adw 1;
 
 template $EphyBookmarksDialog: Adw.Bin {
   Adw.ToolbarView toolbar_view {
-    extend-content-to-top-edge: true;
     bottom-bar-style: raised;
 
     [top]
     Adw.HeaderBar {
       show-title: false;
-      show-end-title-buttons: false;
 
+      // [start]
+      // Button edit_button {
+      //   child: Adw.ButtonContent {
+      //     icon-name: "document-edit-symbolic";
+      //     label: _("Edit");
+      //   };
+      //   clicked => $on_edit_button_clicked();
+      // }
       [start]
-      Button edit_button {
-        child: Adw.ButtonContent {
-          icon-name: "document-edit-symbolic";
-          label: _("Edit");
-        };
-        clicked => $on_edit_button_clicked();
+      ToggleButton search_button {
+        icon-name: "edit-find-symbolic";
+        active: bind search_bar.search-mode-enabled bidirectional;
+        tooltip-text: _("Search");
       }
 
       [start]
       Button done_button {
         label: _("Done");
+        visible: false;
         clicked => $on_done_button_clicked();
       }
 
@@ -40,38 +45,48 @@ template $EphyBookmarksDialog: Adw.Bin {
       }
     }
 
+    [top]
+    SearchBar search_bar {
+      search-mode-enabled: false;
+      key-capture-widget: template;
+
+      Adw.Clamp {
+        hexpand: true;
+
+        SearchEntry search_entry {
+          placeholder-text: _("Search bookmarks");
+          search-changed => $on_search_entry_changed();
+
+          EventControllerKey {
+            key-pressed => $on_search_entry_key_pressed();
+          }
+        }
+      }
+    }
+
     content: Adw.ToastOverlay toast_overlay {
       child: Box {
         orientation: vertical;
         spacing: 12;
-        margin-start: 12;
-        margin-end: 12;
-        margin-top: 12;
-        margin-bottom: 12;
+        margin-start: 6;
+        margin-end: 6;
+        margin-top: 6;
+        margin-bottom: 6;
 
-        Label {
-          label: _("Bookmarks");
-          margin-top: 24;
-          margin-bottom: 24;
-
-          styles [
-            "title-1",
-          ]
-        }
 
         Box {
           valign: start;
           orientation: vertical;
-          spacing: 24;
+          spacing: 12;
 
-          SearchEntry search_entry {
-            placeholder-text: _("Search bookmarks");
-            search-changed => $on_search_entry_changed();
+          // SearchEntry search_entry {
+          //   placeholder-text: _("Search bookmarks");
+          //   search-changed => $on_search_entry_changed();
 
-            EventControllerKey {
-              key-pressed => $on_search_entry_key_pressed();
-            }
-          }
+          //   EventControllerKey {
+          //     key-pressed => $on_search_entry_key_pressed();
+          //   }
+          // }
 
           ScrolledWindow {
             propagate-natural-height: true;
@@ -84,10 +99,10 @@ template $EphyBookmarksDialog: Adw.Bin {
               vhomogeneous: false;
               interpolate-size: true;
               hexpand: true;
-              margin-start: 2;
-              margin-end: 2;
-              margin-top: 2;
-              margin-bottom: 2;
+              // margin-start: 2;
+              // margin-end: 2;
+              // margin-top: 2;
+              // margin-bottom: 2;
 
               StackPage {
                 name: "default";
@@ -185,5 +200,11 @@ menu options_menu {
       label: _("E_xport…");
       action: "app.export-bookmarks";
     }
-}
+  }
+  section {
+    item {
+      label: _("_Edit");
+      action: "app.edit";
+    }
+  }
 }

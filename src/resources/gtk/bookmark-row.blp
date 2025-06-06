@@ -20,13 +20,13 @@ template $EphyBookmarkRow: Adw.ActionRow {
 
   [prefix]
   Image favicon_image {
-    margin-start: 6;
     pixel-size: 16;
   }
 
   [prefix]
   Image drag_handle {
     icon-name: "list-drag-handle-symbolic";
+    margin-end: 6;
 
     DragSource {
       actions: move;

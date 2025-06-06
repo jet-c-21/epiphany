@@ -251,18 +251,6 @@ export_passwords (GSimpleAction *action,
 }
 
 static void
-show_history (GSimpleAction *action,
-              GVariant      *parameter,
-              gpointer       user_data)
-{
-  GtkWindow *window;
-
-  window = gtk_application_get_active_window (GTK_APPLICATION (ephy_shell));
-
-  window_cmd_show_history (NULL, NULL, EPHY_WINDOW (window));
-}
-
-static void
 show_firefox_sync (GSimpleAction *action,
                    GVariant      *parameter,
                    gpointer       user_data)
@@ -440,7 +428,6 @@ static GActionEntry app_entries[] = {
   { "export-bookmarks", export_bookmarks, NULL, NULL, NULL },
   { "import-passwords", import_passwords, NULL, NULL, NULL },
   { "export-passwords", export_passwords, NULL, NULL, NULL },
-  { "history", show_history, NULL, NULL, NULL },
   { "firefox-sync-dialog", show_firefox_sync, NULL, NULL, NULL },
   { "clear-data-view", show_clear_data_view, NULL, NULL, NULL},
   { "preferences", show_preferences, NULL, NULL, NULL },
@@ -461,7 +448,6 @@ static GActionEntry non_incognito_extra_app_entries[] = {
 
 static GActionEntry app_mode_app_entries[] = {
   { "new-window", new_window, NULL, NULL, NULL },
-  { "history", show_history, NULL, NULL, NULL },
   { "clear-data-view", show_clear_data_view, NULL, NULL, NULL},
   { "preferences", show_preferences, NULL, NULL, NULL },
   { "about", show_about, NULL, NULL, NULL },
@@ -1323,31 +1309,6 @@ window_destroyed (GtkWidget  *widget,
 {
   if (widget_pointer)
     *widget_pointer = NULL;
-}
-
-/**
- * ephy_shell_get_history_dialog:
- *
- * Return value: (transfer none):
- **/
-GtkWidget *
-ephy_shell_get_history_dialog (EphyShell *shell)
-{
-  EphyEmbedShell *embed_shell;
-  EphyHistoryService *service;
-
-  embed_shell = ephy_embed_shell_get_default ();
-
-  if (shell->history_dialog == NULL) {
-    service = ephy_embed_shell_get_global_history_service (embed_shell);
-    shell->history_dialog = ephy_history_dialog_new (service);
-    g_signal_connect (shell->history_dialog,
-                      "closed",
-                      G_CALLBACK (window_destroyed),
-                      &shell->history_dialog);
-  }
-
-  return shell->history_dialog;
 }
 
 /**

@@ -51,10 +51,10 @@
 			  bang (shortcut word) of the search engine.
 			</description>
 		</key>
-		<key type="b" name="use-google-search-suggestions">
-			<default>false</default>
-			<summary>Enable Google Search Suggestions</summary>
-			<description>Whether to show Google Search Suggestion in url entry popdown.</description>
+		<key type="b" name="use-search-suggestions">
+			<default>true</default>
+			<summary>Enable Search Suggestions</summary>
+			<description>Whether to show Search Suggestion in url entry popdown.</description>
 		</key>
 		<key type="b" name="new-windows-in-tabs">
 			<default>true</default>

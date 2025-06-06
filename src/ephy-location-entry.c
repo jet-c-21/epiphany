@@ -66,6 +66,7 @@ struct _EphyLocationEntry {
   GtkWidget *mute_button;
   GtkWidget *clear_button;
   GtkWidget *password_button;
+  GtkWidget *opensearch_button;
   GtkWidget *bookmark_button;
   GtkWidget *reader_mode_button;
   GList *page_actions;
@@ -1300,6 +1301,13 @@ ephy_location_entry_measure (GtkWidget      *widget,
       nat += child_nat;
     }
 
+    if (gtk_widget_should_layout (entry->opensearch_button)) {
+      gtk_widget_measure (entry->opensearch_button, orientation, for_size,
+                          &child_min, &child_nat, NULL, NULL);
+      min += child_min;
+      nat += child_nat;
+    }
+
     if (gtk_widget_should_layout (entry->clear_button)) {
       gtk_widget_measure (entry->clear_button, orientation, for_size,
                           &child_min, &child_nat, NULL, NULL);
@@ -1387,6 +1395,8 @@ ephy_location_entry_size_allocate (GtkWidget *widget,
   allocate_icon (widget, height, baseline, entry->password_button,
                  GTK_PACK_END, &icon_left_pos, &icon_right_pos);
   allocate_icon (widget, height, baseline, entry->bookmark_button,
+                 GTK_PACK_END, &icon_left_pos, &icon_right_pos);
+  allocate_icon (widget, height, baseline, entry->opensearch_button,
                  GTK_PACK_END, &icon_left_pos, &icon_right_pos);
   allocate_icon (widget, height, baseline, entry->reader_mode_button,
                  GTK_PACK_END, &icon_left_pos, &icon_right_pos);
@@ -1566,6 +1576,7 @@ ephy_location_entry_dispose (GObject *object)
   gtk_widget_unparent (entry->security_button);
   gtk_widget_unparent (entry->password_button);
   gtk_widget_unparent (entry->bookmark_button);
+  gtk_widget_unparent (entry->opensearch_button);
   gtk_widget_unparent (entry->reader_mode_button);
   gtk_widget_unparent (entry->mute_button);
   gtk_widget_unparent (entry->clear_button);
@@ -1758,6 +1769,7 @@ ephy_location_entry_class_init (EphyLocationEntryClass *klass)
   gtk_widget_class_bind_template_child (widget_class, EphyLocationEntry, suggestions_model);
   gtk_widget_class_bind_template_child (widget_class, EphyLocationEntry, suggestions_view);
   gtk_widget_class_bind_template_child (widget_class, EphyLocationEntry, context_menu);
+  gtk_widget_class_bind_template_child (widget_class, EphyLocationEntry, opensearch_button);
 
   gtk_widget_class_bind_template_callback (widget_class, editable_changed_cb);
   gtk_widget_class_bind_template_callback (widget_class, backspace_cb);
@@ -2460,4 +2472,10 @@ ephy_loation_entry_update_mute_button (EphyLocationEntry *entry,
   } else {
     gtk_widget_set_visible (entry->mute_button, FALSE);
   }
+}
+
+GtkWidget *
+ephy_location_entry_get_opensearch_button (EphyLocationEntry *entry)
+{
+  return entry->opensearch_button;
 }

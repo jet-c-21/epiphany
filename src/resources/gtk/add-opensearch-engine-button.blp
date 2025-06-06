@@ -1,0 +1,23 @@
+using Gtk 4.0;
+using Adw 1;
+
+template $EphyAddOpensearchEngineButton: Adw.Bin {
+  child: MenuButton menu_button {
+    tooltip-text: _("Add Search Engine");
+    popover: popover;
+    icon-name: "ephy-loupe-plus-symbolic";
+    styles [ "flat" ]
+  };
+}
+
+Popover popover {
+  styles [
+    "menu",
+  ]
+
+  child: ListBox list_box {
+    selection-mode: none;
+    row-activated => $on_opensearch_row_activated_cb();
+  };
+}
+

@@ -1,2 +1,7 @@
 /_build/
 /build/
+
+# Customization
+.vscode/
+.idea/
+.history/

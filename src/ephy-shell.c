@@ -537,7 +537,8 @@ ephy_shell_startup (GApplication *application)
     set_accel_for_action (shell, "app.new-window", "<Primary>n");
     set_accel_for_action (shell, "app.new-incognito", "<Primary><Shift>n");
     set_accel_for_action (shell, "app.reopen-closed-tab", "<Primary><Shift>t");
-    set_accel_for_action (shell, "app.import-bookmarks", "<Primary><Shift>m");
+    // set_accel_for_action (shell, "app.import-bookmarks", "<Primary><Shift>m");
+    // 👆 disabled it to capatible with Notion shortcuts, by jet
     set_accel_for_action (shell, "app.export-bookmarks", "<Primary><Shift>x");
     set_accel_for_action (shell, "app.shortcuts", "<Primary>question");
     set_accel_for_action (shell, "app.help", "F1");

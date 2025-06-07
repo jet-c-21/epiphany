@@ -90,81 +90,20 @@ THIS_FILE_PARENT_DIR="$(dirname "$THIS_FILE_PATH")"
 PROJECT_DIR="$(dirname "$THIS_FILE_PARENT_DIR")"
 
 
-install_dependencies() {
-  cl_print "Installing dependencies..." "cyan"
-
-  unlock_sudo
-  sudo apt-get update
-  sudo apt-get install -y \
-    build-essential \
-    meson \
-    ninja-build \
-    cmake \
-    pkg-config \
-    git \
-    nettle-dev \
-    libarchive-dev \
-    libhandy-1-dev \
-    libportal-gtk3-dev \
-    appstream \
-    itstool \
-    gsettings-desktop-schemas-dev
-
-  cl_print "Dependencies installed successfully!\n" "green"
-}
-
-config_before_build() {
-  cl_print "Configuring build environment..." "cyan"
-
-  # Create a fake pkg-config file for gsettings-desktop-schemas if it doesn't exist
-  if [ ! -f /usr/lib/pkgconfig/gsettings-desktop-schemas.pc ]; then
-    sudo tee /usr/lib/pkgconfig/gsettings-desktop-schemas.pc > /dev/null <<'EOF'
-prefix=/usr
-exec_prefix=${prefix}
-datarootdir=${prefix}/share
-schemasdir=${datarootdir}/glib-2.0/schemas
-
-Name: gsettings-desktop-schemas
-Description: GSettings desktop-wide schemas
-Version: 42.0
-EOF
-    cl_print "Created fake gsettings-desktop-schemas.pc for pkg-config." "yellow"
-  else
-    cl_print "gsettings-desktop-schemas.pc already exists." "yellow"
-  fi
-
-  cl_print "Configuration complete.\n" "green"
-}
-
-
-build_on_ubuntu_22_04() {
-  cl_print "[*INFO*] - Building on Ubuntu 22.04..." "blue"
-
-  cd "$PROJECT_DIR"  # This points to /home/puff/my_home/side_projects
-  cl_print "[*INFO*] - Current directory: $(pwd)"
-
+uninstall_app() {
+  cd "$PROJECT_DIR"
   rm -rf build
-  mkdir build && cd build
-
-#  export CFLAGS="$CFLAGS -I/usr/include/gsettings-desktop-schemas"
-#  export CPPFLAGS="$CPPFLAGS -I/usr/include/gsettings-desktop-schemas"
-
-  install_dependencies
-  config_before_build
-
-  meson setup ..
-  cl_print "[*INFO*] - finished meson setup" "green"
-
-  ninja
 
   unlock_sudo
-  sudo ninja install
+  sudo rm -v /usr/local/bin/epiphany
+
+  cl_print "[*INFO*] - Uninstallation completed." "green"
 }
 
 
 # at the bottom of your all_in_one.sh
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-    build_on_ubuntu_22_04 "$@"
+    uninstall_app "$@"
 fi
 
 

@@ -89,45 +89,6 @@ THIS_FILE_PATH="$(realpath "${BASH_SOURCE[0]}")"
 THIS_FILE_PARENT_DIR="$(dirname "$THIS_FILE_PATH")"
 PROJECT_DIR="$(dirname "$THIS_FILE_PARENT_DIR")"
 
-install_gcr() {
-  cl_print "Installing GCR 4.x from source..." "cyan"
-
-  # Ensure sudo is unlocked
-  unlock_sudo
-
-  # Check if gcr-4.pc already exists
-  if pkg-config --exists gcr-4; then
-    cl_print "GCR 4 already installed, skipping build." "green"
-    return
-  fi
-
-  # Install build dependencies for GCR 4
-  sudo apt-get install -y \
-    libglib2.0-dev \
-    libp11-kit-dev \
-    libgdk-pixbuf2.0-dev \
-    libgtk-3-dev \
-    gtk-doc-tools \
-    gobject-introspection \
-    libgcrypt20-dev \
-    libgirepository1.0-dev \
-    libglib2.0-doc \
-    libglib2.0-dev-bin \
-    intltool
-
-  # Download and build GCR 4
-  TMPDIR="$(mktemp -d)"
-  git clone --depth 1 --branch 4.1.0 https://gitlab.gnome.org/GNOME/gcr.git "$TMPDIR/gcr"
-  cd "$TMPDIR/gcr"
-  mkdir build && cd build
-  meson setup .. -Dgtk_doc=false
-  ninja
-  sudo ninja install
-  cd
-  rm -rf "$TMPDIR"
-  cl_print "GCR 4 installation completed." "green"
-}
-
 
 install_dependencies() {
   cl_print "Installing dependencies..." "cyan"
@@ -140,19 +101,73 @@ install_dependencies() {
     ninja-build \
     cmake \
     pkg-config \
-    git
+    git \
+    nettle-dev \
+    libarchive-dev \
+    libhandy-1-dev \
+    libportal-gtk3-dev \
+    appstream \
+    itstool \
+    gsettings-desktop-schemas-dev
+
+  cl_print "Dependencies installed successfully!\n" "green"
 }
 
+config_before_build() {
+  cl_print "Configuring build environment..." "cyan"
+
+  # Create a fake pkg-config file for gsettings-desktop-schemas if it doesn't exist
+  if [ ! -f /usr/lib/pkgconfig/gsettings-desktop-schemas.pc ]; then
+    sudo tee /usr/lib/pkgconfig/gsettings-desktop-schemas.pc > /dev/null <<'EOF'
+prefix=/usr
+exec_prefix=${prefix}
+datarootdir=${prefix}/share
+schemasdir=${datarootdir}/glib-2.0/schemas
+
+Name: gsettings-desktop-schemas
+Description: GSettings desktop-wide schemas
+Version: 42.0
+EOF
+    cl_print "Created fake gsettings-desktop-schemas.pc for pkg-config." "yellow"
+  else
+    cl_print "gsettings-desktop-schemas.pc already exists." "yellow"
+  fi
+
+  export CFLAGS="$CFLAGS -I/usr/include/gsettings-desktop-schemas"
+  export CPPFLAGS="$CPPFLAGS -I/usr/include/gsettings-desktop-schemas"
+  cl_print "Set CFLAGS and CPPFLAGS to include gsettings-desktop-schemas." "yellow"
+
+  cl_print "Configuration complete.\n" "green"
+}
+
+
 build_on_ubuntu_22_04() {
-  cl_print $PROJECT_DIR
+  cl_print "[*INFO*] - Building on Ubuntu 22.04..." "blue"
+
+  cd "$PROJECT_DIR"  # This points to /home/puff/my_home/side_projects
+  cl_print "[*INFO*] - Current directory: $(pwd)"
 
   rm -rf build
   mkdir build && cd build
+
   install_dependencies
+  config_before_build
+
   meson setup ..
+  cl_print "[*INFO*] - finished meson setup" "green"
+
+  ninja
+
+  unlock_sudo
+  sudo ninja install
 }
+
 
 # at the bottom of your all_in_one.sh
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
     build_on_ubuntu_22_04 "$@"
 fi
+
+
+
+

@@ -1,3 +1,7 @@
+# Version
+
+- base source code are from tag: `42.4`
+
 # GNOME Web
 
 GNOME Web (codename: Epiphany) is a GNOME web browser based on
@@ -12,19 +16,19 @@ Epiphany is opinionated.
 Epiphany is designed for Linux systems. The recommended way to install Epiphany
 is via [Flatpak](https://www.flatpak.org/). You may:
 
- * [Download the latest stable version from Flathub](https://flathub.org/apps/details/org.gnome.Epiphany)
-   (recommended).
- * [Download Epiphany Technology Preview](https://nightly.gnome.org/repo/appstream/org.gnome.Epiphany.Devel.flatpakref)
-   if you are adventurous and want to help test tomorrow's Epiphany today. It
-   is **not stable**.
+* [Download the latest stable version from Flathub](https://flathub.org/apps/details/org.gnome.Epiphany)
+  (recommended).
+* [Download Epiphany Technology Preview](https://nightly.gnome.org/repo/appstream/org.gnome.Epiphany.Devel.flatpakref)
+  if you are adventurous and want to help test tomorrow's Epiphany today. It
+  is **not stable**.
 
- * [Download Epiphany
-   Canary](https://nightly.gnome.org/repo/appstream/org.gnome.Epiphany.Canary.flatpakref)
-   if you are even more adventurous and want to help test the most recent
-   development versions of WebKitGTK and Epiphany. This flavor of Epiphany is
-   more likely to be **very unstable** because the code being built comes
-   directly from WebKit's SVN trunk branch and Epiphany's git master branch.
- 
+* [Download Epiphany
+  Canary](https://nightly.gnome.org/repo/appstream/org.gnome.Epiphany.Canary.flatpakref)
+  if you are even more adventurous and want to help test the most recent
+  development versions of WebKitGTK and Epiphany. This flavor of Epiphany is
+  more likely to be **very unstable** because the code being built comes
+  directly from WebKit's SVN trunk branch and Epiphany's git master branch.
+
 Epiphany is probably also available via your operating system's package manager,
 but such packages are often outdated and insecure. Flatpak is the best
 application distribution mechanism for Linux.

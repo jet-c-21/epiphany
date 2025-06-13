@@ -63,20 +63,20 @@ fi
 
 
 # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>> use and unlock sudo >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-#use_sudo() { # sudo experiment wrapper function
-#  : <<COMMENT
-#straight way:
-#  echo "$SUDO_PASSWORD" | sudo -S your command
-#example:
-#  echo "$SUDO_PASSWORD" | sudo -S apt-get update
-#COMMENT
-#
-#  local cmd="echo ${SUDO_PASSWORD} | sudo -SE "
-#  for param in "$@"; do
-#    cmd+="${param} "
-#  done
-#  eval "${cmd}"
-#}
+use_sudo() { # sudo experiment wrapper function
+  : <<COMMENT
+straight way:
+  echo "$SUDO_PASSWORD" | sudo -S your command
+example:
+  echo "$SUDO_PASSWORD" | sudo -S apt-get update
+COMMENT
+
+  local cmd="echo ${SUDO_PASSWORD} | sudo -SE "
+  for param in "$@"; do
+    cmd+="${param} "
+  done
+  eval "${cmd}"
+}
 
 unlock_sudo() {
   local command="whoami"
